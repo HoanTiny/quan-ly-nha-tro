@@ -1,0 +1,270 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PLATFORM_ADMIN
+}
+
+enum HouseRole {
+  OWNER
+  MANAGER
+  TENANT
+}
+
+enum ExpenseCategory {
+  ELECTRIC
+  WATER
+  INTERNET
+  RENT
+  REPAIR
+  SHARED_FOOD
+  OTHER
+}
+
+enum SplitMethod {
+  EQUAL
+  BY_AMOUNT
+  BY_WEIGHT
+  BY_ROOM
+}
+
+enum ExpenseStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum SettlementStatus {
+  OPEN
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+  SMS
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum PaymentProvider {
+  MANUAL
+  MOMO
+  ZALOPAY
+  VNPAY
+  STRIPE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+model User {
+  id                String                  @id @default(cuid())
+  email             String                  @unique
+  phone             String?                 @unique
+  fullName          String
+  passwordHash      String
+  globalRole        UserRole?
+  memberships       HouseMembership[]
+  createdByExpenses Expense[]               @relation("expense_creator")
+  paidExpenses      Expense[]               @relation("expense_payer")
+  receivedPayments  SettlementPayment[]     @relation("payment_payee")
+  notifications     NotificationRecipient[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+}
+
+model BoardingHouse {
+  id              String              @id @default(cuid())
+  code            String              @unique
+  name            String
+  address         String
+  timezone        String              @default("Asia/Ho_Chi_Minh")
+  currency        String              @default("VND")
+  rooms           Room[]
+  memberships     HouseMembership[]
+  expenses        Expense[]
+  settlements     MonthlySettlement[]
+  paymentAccounts PaymentAccount[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model Room {
+  id          String            @id @default(cuid())
+  houseId     String
+  code        String
+  name        String
+  capacity    Int               @default(1)
+  floor       Int?
+  house       BoardingHouse     @relation(fields: [houseId], references: [id])
+  memberships HouseMembership[]
+
+  @@unique([houseId, code])
+  @@index([houseId])
+}
+
+model HouseMembership {
+  id              String              @id @default(cuid())
+  houseId         String
+  userId          String
+  roomId          String?
+  role            HouseRole
+  joinedAt        DateTime            @default(now())
+  leftAt          DateTime?
+  isActive        Boolean             @default(true)
+  house           BoardingHouse       @relation(fields: [houseId], references: [id])
+  user            User                @relation(fields: [userId], references: [id])
+  room            Room?               @relation(fields: [roomId], references: [id])
+  expenseShares   ExpenseAllocation[]
+  payments        SettlementPayment[]
+  settlementItems SettlementItem[]
+
+  @@unique([houseId, userId])
+  @@index([houseId, role, isActive])
+  @@index([roomId])
+}
+
+model Expense {
+  id          String             @id @default(cuid())
+  houseId     String
+  title       String
+  description String?
+  receiptImageUrl String?
+  category    ExpenseCategory
+  amount      Decimal            @db.Decimal(18, 2)
+  expenseDate DateTime
+  monthKey    String
+  splitMethod SplitMethod
+  status      ExpenseStatus      @default(CONFIRMED)
+  payerUserId String
+  createdById String
+  house       BoardingHouse      @relation(fields: [houseId], references: [id])
+  payer       User               @relation("expense_payer", fields: [payerUserId], references: [id])
+  createdBy   User               @relation("expense_creator", fields: [createdById], references: [id])
+  allocations ExpenseAllocation[]
+
+  @@index([houseId, monthKey, category])
+  @@index([houseId, expenseDate])
+}
+
+model ExpenseAllocation {
+  id           String          @id @default(cuid())
+  expenseId    String
+  membershipId String
+  weight       Decimal?        @db.Decimal(10, 2)
+  amount       Decimal         @db.Decimal(18, 2)
+  expense      Expense         @relation(fields: [expenseId], references: [id])
+  membership   HouseMembership @relation(fields: [membershipId], references: [id])
+
+  @@unique([expenseId, membershipId])
+  @@index([membershipId])
+}
+
+model MonthlySettlement {
+  id           String             @id @default(cuid())
+  houseId      String
+  monthKey     String
+  status       SettlementStatus   @default(OPEN)
+  totalExpense Decimal            @db.Decimal(18, 2)
+  totalPaid    Decimal            @db.Decimal(18, 2) @default(0)
+  closedAt     DateTime?
+  house        BoardingHouse      @relation(fields: [houseId], references: [id])
+  items        SettlementItem[]
+  payments     SettlementPayment[]
+
+  @@unique([houseId, monthKey])
+  @@index([houseId, status])
+}
+
+model SettlementItem {
+  id               String            @id @default(cuid())
+  settlementId     String
+  membershipId     String
+  allocatedAmount  Decimal           @db.Decimal(18, 2)
+  paidByUserAmount Decimal           @db.Decimal(18, 2)
+  netAmount        Decimal           @db.Decimal(18, 2)
+  paidAmount       Decimal           @db.Decimal(18, 2) @default(0)
+  settlement       MonthlySettlement @relation(fields: [settlementId], references: [id])
+  membership       HouseMembership   @relation(fields: [membershipId], references: [id])
+
+  @@unique([settlementId, membershipId])
+  @@index([membershipId, netAmount])
+}
+
+model SettlementPayment {
+  id             String            @id @default(cuid())
+  settlementId   String
+  houseId        String
+  membershipId   String
+  payeeUserId    String?
+  amount         Decimal           @db.Decimal(18, 2)
+  provider       PaymentProvider
+  status         PaymentStatus     @default(PENDING)
+  providerRef    String?
+  proofImageUrl  String?
+  idempotencyKey String?           @unique
+  paidAt         DateTime?
+  settlement     MonthlySettlement @relation(fields: [settlementId], references: [id])
+  membership     HouseMembership   @relation(fields: [membershipId], references: [id])
+  payee          User?             @relation("payment_payee", fields: [payeeUserId], references: [id])
+
+  @@index([houseId, settlementId, membershipId])
+  @@index([membershipId, payeeUserId, status])
+}
+
+model PaymentAccount {
+  id          String          @id @default(cuid())
+  houseId     String
+  provider    PaymentProvider
+  accountName String
+  accountRef  String
+  isActive    Boolean         @default(true)
+  house       BoardingHouse   @relation(fields: [houseId], references: [id])
+
+  @@index([houseId, provider, isActive])
+}
+
+model Notification {
+  id          String                  @id @default(cuid())
+  houseId     String?
+  title       String
+  body        String
+  channel     NotificationChannel
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      NotificationStatus      @default(PENDING)
+  recipients  NotificationRecipient[]
+  createdAt   DateTime                @default(now())
+
+  @@index([houseId, status, scheduledAt])
+}
+
+model NotificationRecipient {
+  id             String             @id @default(cuid())
+  notificationId String
+  userId         String
+  status         NotificationStatus @default(PENDING)
+  notification   Notification       @relation(fields: [notificationId], references: [id])
+  user           User               @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+}
