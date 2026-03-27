@@ -1,58 +1,63 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from 'next/link';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getDemoContext } from "@/features/demo/api";
-import { createExpense, generateSettlement, getExpenses, getSettlements } from "@/features/expenses/api";
-import { getMembers } from "@/features/members/api";
-import { getRooms } from "@/features/rooms/api";
-import { uploadImage } from "@/features/uploads/api";
-import { useAuthSession } from "@/lib/auth/use-auth-session";
-import { formatCurrency, parseCurrency } from "@/lib/utils/currency";
-import { useToast } from "@/lib/toast/toast-context";
-import { PageHeader } from "@/components/shared/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { getDemoContext } from '@/features/demo/api';
+import {
+  createExpense,
+  generateSettlement,
+  getExpenses,
+  getSettlements,
+} from '@/features/expenses/api';
+import { getMembers } from '@/features/members/api';
+import { getRooms } from '@/features/rooms/api';
+import { uploadImage } from '@/features/uploads/api';
+import { useAuthSession } from '@/lib/auth/use-auth-session';
+import { formatCurrency, parseCurrency } from '@/lib/utils/currency';
+import { useToast } from '@/lib/toast/toast-context';
+import { PageHeader } from '@/components/shared/page-header';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-const currency = new Intl.NumberFormat("vi-VN");
+const currency = new Intl.NumberFormat('vi-VN');
 
 function getCategoryLabel(category: string) {
   switch (category) {
-    case "ELECTRIC":
-      return "Điện";
-    case "WATER":
-      return "Nước";
-    case "INTERNET":
-      return "Internet";
-    case "RENT":
-      return "Tiền phòng";
-    case "REPAIR":
-      return "Sửa chữa";
-    case "SHARED_FOOD":
-      return "Ăn uống";
-    case "OTHER":
-      return "Khác";
+    case 'ELECTRIC':
+      return 'Điện';
+    case 'WATER':
+      return 'Nước';
+    case 'INTERNET':
+      return 'Internet';
+    case 'RENT':
+      return 'Tiền phòng';
+    case 'REPAIR':
+      return 'Sửa chữa';
+    case 'SHARED_FOOD':
+      return 'Ăn uống';
+    case 'OTHER':
+      return 'Khác';
     default:
       return category;
   }
 }
 
 function formatMonthLabel(monthKey: string) {
-  const [year, month] = monthKey.split("-");
+  const [year, month] = monthKey.split('-');
   return `${month}/${year}`;
 }
 
 function buildDefaultDueDate(monthInput: string) {
-  const [year, month] = monthInput.split("-").map(Number);
+  const [year, month] = monthInput.split('-').map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
 
-  return `${nextYear}-${`${nextMonth}`.padStart(2, "0")}-10`;
+  return `${nextYear}-${`${nextMonth}`.padStart(2, '0')}-10`;
 }
 
 export default function AdminBillsPage() {
@@ -60,56 +65,60 @@ export default function AdminBillsPage() {
   const session = useAuthSession();
   const { showToast } = useToast();
   const currentMonth = new Date().toISOString().slice(0, 7);
-  const ALL_MEMBERS = "__ALL_MEMBERS__";
-  const SELECTED_MEMBERS = "__SELECTED_MEMBERS__";
+  const ALL_MEMBERS = '__ALL_MEMBERS__';
+  const SELECTED_MEMBERS = '__SELECTED_MEMBERS__';
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("ELECTRIC");
-  const [splitMode, setSplitMode] = useState<typeof ALL_MEMBERS | typeof SELECTED_MEMBERS>(ALL_MEMBERS);
-  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
-  const [totalAmount, setTotalAmount] = useState("");
-  const [rawTotalAmount, setRawTotalAmount] = useState(""); // Biến lưu trữ giá trị chưa định dạng
-  const [roomId, setRoomId] = useState("");
-  const [payerUserId, setPayerUserId] = useState("");
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('ELECTRIC');
+  const [splitMode, setSplitMode] = useState<
+    typeof ALL_MEMBERS | typeof SELECTED_MEMBERS
+  >(ALL_MEMBERS);
+  const [expenseDate, setExpenseDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [totalAmount, setTotalAmount] = useState('');
+  const [rawTotalAmount, setRawTotalAmount] = useState(''); // Biến lưu trữ giá trị chưa định dạng
+  const [roomId, setRoomId] = useState('');
+  const [payerUserId, setPayerUserId] = useState('');
   const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [monthInput, setMonthInput] = useState(currentMonth);
   const [dueDate, setDueDate] = useState(buildDefaultDueDate(currentMonth));
-  const [expenseError, setExpenseError] = useState("");
+  const [expenseError, setExpenseError] = useState('');
 
   const demoContextQuery = useQuery({
-    queryKey: ["demo", "context"],
-    queryFn: getDemoContext
+    queryKey: ['demo', 'context'],
+    queryFn: getDemoContext,
   });
 
   const roomsQuery = useQuery({
-    queryKey: ["rooms", demoContextQuery.data?.houseId],
+    queryKey: ['rooms', demoContextQuery.data?.houseId],
     queryFn: () => getRooms(demoContextQuery.data!.houseId),
-    enabled: Boolean(demoContextQuery.data?.houseId)
+    enabled: Boolean(demoContextQuery.data?.houseId),
   });
 
   const membersQuery = useQuery({
-    queryKey: ["members", demoContextQuery.data?.houseId],
+    queryKey: ['members', demoContextQuery.data?.houseId],
     queryFn: () => getMembers(demoContextQuery.data!.houseId),
-    enabled: Boolean(demoContextQuery.data?.houseId)
+    enabled: Boolean(demoContextQuery.data?.houseId),
   });
 
   const expensesQuery = useQuery({
-    queryKey: ["expenses", demoContextQuery.data?.houseId, monthInput],
+    queryKey: ['expenses', demoContextQuery.data?.houseId, monthInput],
     queryFn: () => getExpenses(demoContextQuery.data!.houseId, monthInput),
-    enabled: Boolean(demoContextQuery.data?.houseId)
+    enabled: Boolean(demoContextQuery.data?.houseId),
   });
 
   const settlementsQuery = useQuery({
-    queryKey: ["settlements", demoContextQuery.data?.houseId, monthInput],
+    queryKey: ['settlements', demoContextQuery.data?.houseId, monthInput],
     queryFn: () => getSettlements(demoContextQuery.data!.houseId, monthInput),
-    enabled: Boolean(demoContextQuery.data?.houseId)
+    enabled: Boolean(demoContextQuery.data?.houseId),
   });
 
   const activeMembers = useMemo(
     () => (membersQuery.data ?? []).filter((member) => member.isActive),
-    [membersQuery.data]
+    [membersQuery.data],
   );
 
   const scopedMembers = useMemo(() => {
@@ -139,12 +148,14 @@ export default function AdminBillsPage() {
 
     if (splitMode === ALL_MEMBERS) {
       // Khi chọn "chia đều", tự động chọn tất cả các thành viên trong phạm vi
-      const allScopedMemberIds = scopedMembers.map((member) => member.membershipId!).filter(Boolean) as string[];
+      const allScopedMemberIds = scopedMembers
+        .map((member) => member.membershipId!)
+        .filter(Boolean) as string[];
       setParticipantIds(allScopedMemberIds);
     } else {
       // Khi chọn "thành viên cụ thể", chỉ giữ lại những thành viên vẫn thuộc phạm vi hiện tại
       const validParticipantIds = participantIds.filter((membershipId) =>
-        scopedMembers.some((member) => member.membershipId === membershipId)
+        scopedMembers.some((member) => member.membershipId === membershipId),
       );
       setParticipantIds(validParticipantIds);
     }
@@ -153,7 +164,7 @@ export default function AdminBillsPage() {
   const createExpenseMutation = useMutation({
     mutationFn: async () => {
       if (!demoContextQuery.data?.houseId) {
-        throw new Error("Missing house context");
+        throw new Error('Missing house context');
       }
 
       let receiptImageUrl: string | undefined;
@@ -166,11 +177,12 @@ export default function AdminBillsPage() {
         createdById: session?.userId ?? demoContextQuery.data.ownerId,
         houseId: demoContextQuery.data.houseId,
         roomId: roomId || undefined,
-        payerUserId: payerUserId || session?.userId || demoContextQuery.data.ownerId,
+        payerUserId:
+          payerUserId || session?.userId || demoContextQuery.data.ownerId,
         title,
         description: description || undefined,
         category,
-        splitMethod: "EQUAL",
+        splitMethod: 'EQUAL',
         totalAmount: Number(totalAmount || 0),
         expenseDate: `${expenseDate}T00:00:00.000Z`,
         receiptImageUrl,
@@ -183,50 +195,54 @@ export default function AdminBillsPage() {
       return createExpense(payload);
     },
     onSuccess: async () => {
-      setTitle("");
-      setDescription("");
-      setCategory("ELECTRIC");
+      setTitle('');
+      setDescription('');
+      setCategory('ELECTRIC');
       setSplitMode(ALL_MEMBERS);
       setExpenseDate(new Date().toISOString().slice(0, 10));
-      setTotalAmount("");
-      setRoomId("");
+      setTotalAmount('');
+      setRoomId('');
       setReceiptFile(null);
-      setExpenseError("");
+      setExpenseError('');
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["expenses"] }),
-        queryClient.invalidateQueries({ queryKey: ["settlements"] })
+        queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+        queryClient.invalidateQueries({ queryKey: ['settlements'] }),
       ]);
-      showToast("Đã tạo khoản chi và cập nhật bill cho thành viên.", "success");
+      showToast('Đã tạo khoản chi và cập nhật bill cho thành viên.', 'success');
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : "Không tạo được khoản chi.";
+      const message =
+        error instanceof Error ? error.message : 'Không tạo được khoản chi.';
       setExpenseError(message);
-      showToast(message, "error");
-    }
+      showToast(message, 'error');
+    },
   });
 
   const generateSettlementMutation = useMutation({
     mutationFn: () => {
       if (!demoContextQuery.data?.houseId) {
-        throw new Error("Missing house context");
+        throw new Error('Missing house context');
       }
 
-      const [year, month] = monthInput.split("-").map(Number);
+      const [year, month] = monthInput.split('-').map(Number);
       return generateSettlement({
         houseId: demoContextQuery.data.houseId,
         month,
         year,
-        dueDate: `${dueDate}T00:00:00.000Z`
+        dueDate: `${dueDate}T00:00:00.000Z`,
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["settlements"] });
-      showToast("Đã chốt công nợ tháng thành công.", "success");
+      await queryClient.invalidateQueries({ queryKey: ['settlements'] });
+      showToast('Đã chốt công nợ tháng thành công.', 'success');
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : "Không chốt được công nợ tháng.";
-      showToast(message, "error");
-    }
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Không chốt được công nợ tháng.';
+      showToast(message, 'error');
+    },
   });
 
   const handleRoomChange = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -244,7 +260,7 @@ export default function AdminBillsPage() {
     event.preventDefault();
 
     if (splitMode === SELECTED_MEMBERS && participantIds.length === 0) {
-      setExpenseError("Hãy chọn ít nhất 1 thành viên để chia bill.");
+      setExpenseError('Hãy chọn ít nhất 1 thành viên để chia bill.');
       return;
     }
 
@@ -285,7 +301,10 @@ export default function AdminBillsPage() {
             <CardTitle>Tạo khoản chi mới</CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-4 md:grid-cols-2" onSubmit={handleExpenseSubmit}>
+            <form
+              className="grid gap-4 md:grid-cols-2"
+              onSubmit={handleExpenseSubmit}
+            >
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="title">Tên khoản chi</Label>
                 <Input
@@ -320,16 +339,22 @@ export default function AdminBillsPage() {
                 <select
                   id="splitMode"
                   value={splitMode}
-                  onChange={(event) => setSplitMode(event.target.value as typeof splitMode)}
+                  onChange={(event) =>
+                    setSplitMode(event.target.value as typeof splitMode)
+                  }
                   className="flex h-10 w-full rounded-xl border bg-background px-3 py-2 text-sm"
                 >
-                  <option value={ALL_MEMBERS}>Chia đều cho tất cả người trong phạm vi</option>
-                  <option value={SELECTED_MEMBERS}>Chia cho các thành viên cụ thể</option>
+                  <option value={ALL_MEMBERS}>
+                    Chia đều cho tất cả người trong phạm vi
+                  </option>
+                  <option value={SELECTED_MEMBERS}>
+                    Chia cho các thành viên cụ thể
+                  </option>
                 </select>
                 <p className="text-xs text-muted-foreground">
                   {splitMode === ALL_MEMBERS
-                    ? "Hệ thống sẽ tự động chia đều cho toàn bộ thành viên trong phạm vi đã chọn."
-                    : "Bạn tự chọn đúng những thành viên cần tham gia bill, hệ thống sẽ chia đều trong nhóm đó."}
+                    ? 'Hệ thống sẽ tự động chia đều cho toàn bộ thành viên trong phạm vi đã chọn.'
+                    : 'Bạn tự chọn đúng những thành viên cần tham gia bill, hệ thống sẽ chia đều trong nhóm đó.'}
                 </p>
               </div>
 
@@ -338,7 +363,7 @@ export default function AdminBillsPage() {
                 <Input
                   id="amount"
                   type="text"
-                  value={totalAmount ? formatCurrency(totalAmount) : ""}
+                  value={totalAmount ? formatCurrency(totalAmount) : ''}
                   onChange={(event) => {
                     // Chỉ giữ lại các ký tự số từ chuỗi đầu vào
                     const rawValue = event.target.value.replace(/[^\d]/g, '');
@@ -410,10 +435,14 @@ export default function AdminBillsPage() {
                   id="receiptImage"
                   type="file"
                   accept="image/*"
-                  onChange={(event) => setReceiptFile(event.target.files?.[0] ?? null)}
+                  onChange={(event) =>
+                    setReceiptFile(event.target.files?.[0] ?? null)
+                  }
                 />
                 <p className="text-xs text-muted-foreground">
-                  {receiptFile ? `Đã chọn: ${receiptFile.name}` : "Chưa chọn file hóa đơn."}
+                  {receiptFile
+                    ? `Đã chọn: ${receiptFile.name}`
+                    : 'Chưa chọn file hóa đơn.'}
                 </p>
               </div>
 
@@ -425,7 +454,11 @@ export default function AdminBillsPage() {
                       type="button"
                       className="text-sm font-medium text-pine"
                       onClick={() =>
-                        setParticipantIds(scopedMembers.map((member) => member.membershipId!).filter(Boolean))
+                        setParticipantIds(
+                          scopedMembers
+                            .map((member) => member.membershipId!)
+                            .filter(Boolean),
+                        )
                       }
                     >
                       Chọn tất cả
@@ -436,12 +469,20 @@ export default function AdminBillsPage() {
                 <div className="rounded-2xl bg-sand px-4 py-3 text-sm text-ink">
                   {splitMode === ALL_MEMBERS ? (
                     <>
-                      Đang chia đều cho <span className="font-semibold">{scopedMembers.length}</span> thành viên
-                      {roomId ? " trong phòng đã chọn" : " trong toàn nhà"}.
+                      Đang chia đều cho{' '}
+                      <span className="font-semibold">
+                        {scopedMembers.length}
+                      </span>{' '}
+                      thành viên
+                      {roomId ? ' trong phòng đã chọn' : ' trong toàn nhà'}.
                     </>
                   ) : (
                     <>
-                      Đang chọn <span className="font-semibold">{participantIds.length}</span> thành viên cụ thể để chia đều.
+                      Đang chọn{' '}
+                      <span className="font-semibold">
+                        {participantIds.length}
+                      </span>{' '}
+                      thành viên cụ thể để chia đều.
                     </>
                   )}
                 </div>
@@ -450,18 +491,22 @@ export default function AdminBillsPage() {
                   {scopedMembers.map((member) => {
                     const membershipId = member.membershipId!;
                     const checked =
-                      splitMode === ALL_MEMBERS ? true : participantIds.includes(membershipId);
+                      splitMode === ALL_MEMBERS
+                        ? true
+                        : participantIds.includes(membershipId);
 
                     return (
                       <label
                         key={membershipId}
                         className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${
-                          splitMode === ALL_MEMBERS ? "bg-secondary/70" : ""
+                          splitMode === ALL_MEMBERS ? 'bg-secondary/70' : ''
                         }`}
                       >
                         <span>
                           {member.fullName}
-                          <span className="ml-2 text-muted-foreground">{member.roomName || "Chưa xếp phòng"}</span>
+                          <span className="ml-2 text-muted-foreground">
+                            {member.roomName || 'Chưa xếp phòng'}
+                          </span>
                         </span>
                         <input
                           type="checkbox"
@@ -471,7 +516,9 @@ export default function AdminBillsPage() {
                             setParticipantIds((current) =>
                               event.target.checked
                                 ? [...current, membershipId]
-                                : current.filter((item) => item !== membershipId)
+                                : current.filter(
+                                    (item) => item !== membershipId,
+                                  ),
                             )
                           }
                         />
@@ -481,10 +528,20 @@ export default function AdminBillsPage() {
                 </div>
               </div>
 
-              {expenseError ? <p className="text-sm text-coral md:col-span-2">{expenseError}</p> : null}
+              {expenseError ? (
+                <p className="text-sm text-coral md:col-span-2">
+                  {expenseError}
+                </p>
+              ) : null}
 
-              <Button className="md:col-span-2" disabled={createExpenseMutation.isPending} type="submit">
-                {createExpenseMutation.isPending ? "Đang tạo khoản chi..." : "Thêm khoản chi"}
+              <Button
+                className="md:col-span-2"
+                disabled={createExpenseMutation.isPending}
+                type="submit"
+              >
+                {createExpenseMutation.isPending
+                  ? 'Đang tạo khoản chi...'
+                  : 'Thêm khoản chi'}
               </Button>
             </form>
           </CardContent>
@@ -498,15 +555,30 @@ export default function AdminBillsPage() {
             <CardContent className="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
               <div className="space-y-2">
                 <Label htmlFor="monthInput">Tháng</Label>
-                <Input id="monthInput" type="month" value={monthInput} onChange={handleMonthChange} />
+                <Input
+                  id="monthInput"
+                  type="month"
+                  value={monthInput}
+                  onChange={handleMonthChange}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="dueDate">Hạn đóng</Label>
-                <Input id="dueDate" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => setDueDate(event.target.value)}
+                />
               </div>
               <div className="flex items-end">
-                <Button disabled={generateSettlementMutation.isPending} onClick={() => generateSettlementMutation.mutate()}>
-                  {generateSettlementMutation.isPending ? "Đang chốt..." : "Generate settlement"}
+                <Button
+                  disabled={generateSettlementMutation.isPending}
+                  onClick={() => generateSettlementMutation.mutate()}
+                >
+                  {generateSettlementMutation.isPending
+                    ? 'Đang chốt...'
+                    : 'Generate settlement'}
                 </Button>
               </div>
             </CardContent>
@@ -519,18 +591,31 @@ export default function AdminBillsPage() {
             <CardContent className="space-y-3">
               {settlementsQuery.data?.length ? (
                 settlementsQuery.data.map((settlement) => (
-                  <div key={settlement.id} className="rounded-2xl border border-black/10 p-4">
+                  <div
+                    key={settlement.id}
+                    className="rounded-2xl border border-black/10 p-4"
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="font-semibold">{formatMonthLabel(settlement.monthKey)}</p>
-                        <p className="text-sm text-muted-foreground">{settlement.itemsCount} thành viên trong kỳ</p>
+                        <p className="font-semibold">
+                          {formatMonthLabel(settlement.monthKey)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {settlement.itemsCount} thành viên trong kỳ
+                        </p>
                       </div>
-                      <Badge variant={settlement.status === "PAID" ? "success" : "warning"}>
+                      <Badge
+                        variant={
+                          settlement.status === 'PAID' ? 'success' : 'warning'
+                        }
+                      >
                         {settlement.status}
                       </Badge>
                     </div>
                     <div className="mt-3 grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
-                      <p>Tổng chi: {currency.format(settlement.totalExpense)} VND</p>
+                      <p>
+                        Tổng chi: {currency.format(settlement.totalExpense)} VND
+                      </p>
                       <p>Đã thu: {currency.format(settlement.totalPaid)} VND</p>
                     </div>
                   </div>
@@ -552,7 +637,10 @@ export default function AdminBillsPage() {
         <CardContent className="space-y-3">
           {expensesQuery.data?.length ? (
             expensesQuery.data.map((expense) => (
-              <div key={expense.id} className="rounded-2xl border border-black/10 p-4">
+              <div
+                key={expense.id}
+                className="rounded-2xl border border-black/10 p-4"
+              >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -560,8 +648,10 @@ export default function AdminBillsPage() {
                       <Badge>{getCategoryLabel(expense.category)}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {new Date(expense.expenseDate).toLocaleDateString("vi-VN")} | Người chi:{" "}
-                      {expense.payerName ?? "Không rõ"}
+                      {new Date(expense.expenseDate).toLocaleDateString(
+                        'vi-VN',
+                      )}{' '}
+                      | Người chi: {expense.payerName ?? 'Không rõ'}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {expense.participantCount} người tham gia chia bill
@@ -569,7 +659,9 @@ export default function AdminBillsPage() {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-lg font-semibold">{currency.format(expense.amount)} VND</p>
+                    <p className="text-lg font-semibold">
+                      {currency.format(expense.amount)} VND
+                    </p>
                     {expense.receiptImageUrl ? (
                       <Link
                         className="text-sm font-medium text-pine"
@@ -579,7 +671,9 @@ export default function AdminBillsPage() {
                         Xem hóa đơn
                       </Link>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Không có ảnh hóa đơn</p>
+                      <p className="text-sm text-muted-foreground">
+                        Không có ảnh hóa đơn
+                      </p>
                     )}
                   </div>
                 </div>

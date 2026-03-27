@@ -13,7 +13,6 @@ yarn.lock
 *.log
 tmp/
 temp/
-uploads/
 .DS_Store
 Thumbs.db
 prisma/dev.db
