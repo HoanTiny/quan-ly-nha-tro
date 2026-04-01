@@ -23,30 +23,40 @@ export function calculateShares(
       return { ...participant, weight: 1 / roomSize };
     }
 
+    if (method === 'BY_WEIGHT') {
+      return { ...participant, weight: participant.weight ?? 1 };
+    }
+
     return { ...participant, weight: participant.weight ?? 1 };
   });
 
   const totalWeight = weightedParticipants.reduce((sum, item) => sum + (item.weight ?? 1), 0);
-  const totalCents = Math.round(totalAmount * 100);
+
+  // Làm tròn lên đến đơn vị nghìn đồng
   const rawShares = weightedParticipants.map((item) => ({
     userId: item.userId,
-    cents: (totalCents * (item.weight ?? 1)) / totalWeight,
+    amount: (totalAmount * (item.weight ?? 1)) / totalWeight,
   }));
 
   const rounded = rawShares.map((item) => ({
     userId: item.userId,
-    cents: Math.floor(item.cents),
-    fraction: item.cents - Math.floor(item.cents),
+    amount: Math.ceil(item.amount / 1000) * 1000,
+    fraction: item.amount - Math.ceil(item.amount / 1000) * 1000,
   }));
 
-  let remainder = totalCents - rounded.reduce((sum, item) => sum + item.cents, 0);
-  rounded.sort((a, b) => b.fraction - a.fraction);
+  // Nếu tổng vượt quá, trừ dần từ những phần có fraction nhỏ nhất (gần 0 nhất)
+  let remainder = rounded.reduce((sum, item) => sum + item.amount, 0) - totalAmount;
+  rounded.sort((a, b) => a.fraction - b.fraction);
 
-  for (let index = 0; index < remainder; index += 1) {
-    rounded[index].cents += 1;
+  // Phân phối phần dư bằng cách trừ 1000 từ các phần tử, có thể lặp lại nếu cần
+  let index = 0;
+  while (remainder >= 1000) {
+    rounded[index % rounded.length].amount -= 1000;
+    remainder -= 1000;
+    index += 1;
   }
 
   return Object.fromEntries(
-    rounded.map((item) => [item.userId, Number((item.cents / 100).toFixed(2))]),
+    rounded.map((item) => [item.userId, item.amount]),
   );
 }

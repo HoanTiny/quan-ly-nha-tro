@@ -1,21 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getDemoContext } from '@/features/demo/api';
 import {
   createExpense,
+  deleteExpense,
   generateSettlement,
   getExpenses,
   getSettlements,
+  updateExpense,
 } from '@/features/expenses/api';
 import { getMembers } from '@/features/members/api';
 import { getRooms } from '@/features/rooms/api';
 import { uploadImage } from '@/features/uploads/api';
 import { useAuthSession } from '@/lib/auth/use-auth-session';
-import { formatCurrency, parseCurrency } from '@/lib/utils/currency';
 import { useToast } from '@/lib/toast/toast-context';
 import { PageHeader } from '@/components/shared/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -64,15 +65,17 @@ export default function AdminBillsPage() {
   const queryClient = useQueryClient();
   const session = useAuthSession();
   const { showToast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const currentMonth = new Date().toISOString().slice(0, 7);
   const ALL_MEMBERS = '__ALL_MEMBERS__';
   const SELECTED_MEMBERS = '__SELECTED_MEMBERS__';
+  const UNEQUAL_SPLIT = '__UNEQUAL_SPLIT__';
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('ELECTRIC');
   const [splitMode, setSplitMode] = useState<
-    typeof ALL_MEMBERS | typeof SELECTED_MEMBERS
+    typeof ALL_MEMBERS | typeof SELECTED_MEMBERS | typeof UNEQUAL_SPLIT
   >(ALL_MEMBERS);
   const [expenseDate, setExpenseDate] = useState(
     new Date().toISOString().slice(0, 10),
@@ -82,10 +85,17 @@ export default function AdminBillsPage() {
   const [roomId, setRoomId] = useState('');
   const [payerUserId, setPayerUserId] = useState('');
   const [participantIds, setParticipantIds] = useState<string[]>([]);
+  const [participantWeights, setParticipantWeights] = useState<Record<string, number>>({});
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [monthInput, setMonthInput] = useState(currentMonth);
   const [dueDate, setDueDate] = useState(buildDefaultDueDate(currentMonth));
   const [expenseError, setExpenseError] = useState('');
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState('ELECTRIC');
+  const [editAmount, setEditAmount] = useState('');
+  const [editExpenseDate, setEditExpenseDate] = useState('');
 
   const demoContextQuery = useQuery({
     queryKey: ['demo', 'context'],
@@ -152,12 +162,27 @@ export default function AdminBillsPage() {
         .map((member) => member.membershipId!)
         .filter(Boolean) as string[];
       setParticipantIds(allScopedMemberIds);
-    } else {
+    } else if (splitMode === SELECTED_MEMBERS) {
       // Khi chọn "thành viên cụ thể", chỉ giữ lại những thành viên vẫn thuộc phạm vi hiện tại
       const validParticipantIds = participantIds.filter((membershipId) =>
         scopedMembers.some((member) => member.membershipId === membershipId),
       );
       setParticipantIds(validParticipantIds);
+    } else if (splitMode === UNEQUAL_SPLIT) {
+      // Khi chọn "chia không đều", chọn tất cả và set weight = 1 cho mỗi người
+      const allScopedMemberIds = scopedMembers
+        .map((member) => member.membershipId!)
+        .filter(Boolean) as string[];
+      setParticipantIds(allScopedMemberIds);
+      setParticipantWeights((prev) => {
+        const next: Record<string, number> = { ...prev };
+        for (const member of scopedMembers) {
+          if (member.membershipId && !(member.membershipId in next)) {
+            next[member.membershipId] = 1;
+          }
+        }
+        return next;
+      });
     }
   }, [scopedMembers, splitMode]);
 
@@ -182,14 +207,21 @@ export default function AdminBillsPage() {
         title,
         description: description || undefined,
         category,
-        splitMethod: 'EQUAL',
+        splitMethod: splitMode === UNEQUAL_SPLIT ? 'BY_WEIGHT' : 'EQUAL',
         totalAmount: Number(totalAmount || 0),
         expenseDate: `${expenseDate}T00:00:00.000Z`,
         receiptImageUrl,
       };
 
-      if (splitMode === SELECTED_MEMBERS) {
+      if (splitMode === SELECTED_MEMBERS || splitMode === UNEQUAL_SPLIT) {
         payload.participantMembershipIds = participantIds;
+      }
+
+      if (splitMode === UNEQUAL_SPLIT) {
+        payload.participantWeights = participantIds.map((id) => ({
+          membershipId: id,
+          weight: participantWeights[id] ?? 1,
+        }));
       }
 
       return createExpense(payload);
@@ -204,6 +236,9 @@ export default function AdminBillsPage() {
       setRoomId('');
       setReceiptFile(null);
       setExpenseError('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['expenses'] }),
         queryClient.invalidateQueries({ queryKey: ['settlements'] }),
@@ -244,6 +279,86 @@ export default function AdminBillsPage() {
       showToast(message, 'error');
     },
   });
+
+  const updateExpenseMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingExpenseId) {
+        throw new Error('Missing expense ID');
+      }
+      return updateExpense(editingExpenseId, {
+        title: editTitle,
+        description: editDescription || undefined,
+        category: editCategory as any,
+        totalAmount: Number(editAmount || 0),
+        expenseDate: `${editExpenseDate}T00:00:00.000Z`,
+      });
+    },
+    onSuccess: async () => {
+      setEditingExpenseId(null);
+      setEditTitle('');
+      setEditDescription('');
+      setEditCategory('ELECTRIC');
+      setEditAmount('');
+      setEditExpenseDate('');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+        queryClient.invalidateQueries({ queryKey: ['bills'] }),
+      ]);
+      showToast('Đã cập nhật khoản chi thành công.', 'success');
+    },
+    onError: (error) => {
+      const message =
+        error instanceof Error ? error.message : 'Không cập nhật được khoản chi.';
+      showToast(message, 'error');
+    },
+  });
+
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async (expenseId: string) => {
+      return deleteExpense(expenseId);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+        queryClient.invalidateQueries({ queryKey: ['bills'] }),
+      ]);
+      showToast('Đã xóa khoản chi thành công.', 'success');
+    },
+    onError: (error) => {
+      const message =
+        error instanceof Error ? error.message : 'Không xóa được khoản chi.';
+      showToast(message, 'error');
+    },
+  });
+
+  const handleEditClick = (expense: any) => {
+    setEditingExpenseId(expense.id);
+    setEditTitle(expense.title);
+    setEditDescription(expense.description || '');
+    setEditCategory(expense.category);
+    setEditAmount(String(expense.amount));
+    setEditExpenseDate(expense.expenseDate.slice(0, 10));
+  };
+
+  const handleCancelEdit = () => {
+    setEditingExpenseId(null);
+    setEditTitle('');
+    setEditDescription('');
+    setEditCategory('ELECTRIC');
+    setEditAmount('');
+    setEditExpenseDate('');
+  };
+
+  const handleUpdateSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    updateExpenseMutation.mutate();
+  };
+
+  const handleDeleteClick = async (expenseId: string) => {
+    if (confirm('Bạn có chắc chắn muốn xóa khoản chi này?')) {
+      deleteExpenseMutation.mutate(expenseId);
+    }
+  };
 
   const handleRoomChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const nextRoomId = event.target.value;
@@ -350,11 +465,16 @@ export default function AdminBillsPage() {
                   <option value={SELECTED_MEMBERS}>
                     Chia cho các thành viên cụ thể
                   </option>
+                  <option value={UNEQUAL_SPLIT}>
+                    Chia không đều (theo hệ số)
+                  </option>
                 </select>
                 <p className="text-xs text-muted-foreground">
                   {splitMode === ALL_MEMBERS
                     ? 'Hệ thống sẽ tự động chia đều cho toàn bộ thành viên trong phạm vi đã chọn.'
-                    : 'Bạn tự chọn đúng những thành viên cần tham gia bill, hệ thống sẽ chia đều trong nhóm đó.'}
+                    : splitMode === SELECTED_MEMBERS
+                    ? 'Bạn tự chọn đúng những thành viên cần tham gia bill, hệ thống sẽ chia đều trong nhóm đó.'
+                    : 'Mỗi thành viên có hệ số chia khác nhau. Ví dụ: A x1 = 30k, B x1 = 30k, C x2 = 60k (tổng 120k).'}
                 </p>
               </div>
 
@@ -363,10 +483,9 @@ export default function AdminBillsPage() {
                 <Input
                   id="amount"
                   type="text"
-                  value={totalAmount ? formatCurrency(totalAmount) : ''}
+                  value={totalAmount ? currency.format(Number(totalAmount)) : ''}
                   onChange={(event) => {
-                    // Chỉ giữ lại các ký tự số từ chuỗi đầu vào
-                    const rawValue = event.target.value.replace(/[^\d]/g, '');
+                    const rawValue = event.target.value.replace(/[^\d,]/g, '');
                     setTotalAmount(rawValue);
                   }}
                   placeholder="4,200,000"
@@ -433,6 +552,7 @@ export default function AdminBillsPage() {
                 <Label htmlFor="receiptImage">Ảnh hóa đơn</Label>
                 <Input
                   id="receiptImage"
+                  ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   onChange={(event) =>
@@ -476,6 +596,17 @@ export default function AdminBillsPage() {
                       thành viên
                       {roomId ? ' trong phòng đã chọn' : ' trong toàn nhà'}.
                     </>
+                  ) : splitMode === UNEQUAL_SPLIT ? (
+                    <>
+                      Đang chọn{' '}
+                      <span className="font-semibold">
+                        {participantIds.length}
+                      </span>{' '}
+                      thành viên. Tổng hệ số:{' '}
+                      <span className="font-semibold">
+                        {participantIds.reduce((sum, id) => sum + (participantWeights[id] ?? 1), 0)}
+                      </span>
+                    </>
                   ) : (
                     <>
                       Đang chọn{' '}
@@ -502,26 +633,49 @@ export default function AdminBillsPage() {
                           splitMode === ALL_MEMBERS ? 'bg-secondary/70' : ''
                         }`}
                       >
-                        <span>
-                          {member.fullName}
-                          <span className="ml-2 text-muted-foreground">
-                            {member.roomName || 'Chưa xếp phòng'}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={splitMode === ALL_MEMBERS}
+                            onChange={(event) =>
+                              setParticipantIds((current) =>
+                                event.target.checked
+                                  ? [...current, membershipId]
+                                  : current.filter(
+                                      (item) => item !== membershipId,
+                                    ),
+                              )
+                            }
+                          />
+                          <span>
+                            {member.fullName}
+                            <span className="ml-2 text-muted-foreground">
+                              {member.roomName || 'Chưa xếp phòng'}
+                            </span>
                           </span>
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={splitMode === ALL_MEMBERS}
-                          onChange={(event) =>
-                            setParticipantIds((current) =>
-                              event.target.checked
-                                ? [...current, membershipId]
-                                : current.filter(
-                                    (item) => item !== membershipId,
-                                  ),
-                            )
-                          }
-                        />
+                        </div>
+                        {splitMode === UNEQUAL_SPLIT && checked ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">x</span>
+                            <select
+                              value={participantWeights[membershipId] ?? 1}
+                              onChange={(e) =>
+                                setParticipantWeights((prev) => ({
+                                  ...prev,
+                                  [membershipId]: Number(e.target.value),
+                                }))
+                              }
+                              className="h-8 w-16 rounded-lg border bg-background px-2 py-1 text-sm"
+                            >
+                              <option value={1}>1</option>
+                              <option value={2}>2</option>
+                              <option value={3}>3</option>
+                              <option value={4}>4</option>
+                              <option value={5}>5</option>
+                            </select>
+                          </div>
+                        ) : null}
                       </label>
                     );
                   })}
@@ -635,6 +789,86 @@ export default function AdminBillsPage() {
           <CardTitle>Chi phí gần đây</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {editingExpenseId ? (
+            <div className="rounded-2xl border border-black/10 p-4 bg-secondary/50">
+              <form onSubmit={handleUpdateSubmit} className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-title">Tên khoản chi</Label>
+                    <Input
+                      id="edit-title"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-category">Danh mục</Label>
+                    <select
+                      id="edit-category"
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      className="flex h-10 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="ELECTRIC">Điện</option>
+                      <option value="WATER">Nước</option>
+                      <option value="INTERNET">Internet</option>
+                      <option value="RENT">Tiền phòng</option>
+                      <option value="REPAIR">Sửa chữa</option>
+                      <option value="SHARED_FOOD">Ăn uống</option>
+                      <option value="OTHER">Khác</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-amount">Số tiền</Label>
+                    <Input
+                      id="edit-amount"
+                      type="text"
+                      value={editAmount ? currency.format(Number(editAmount)) : ''}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/[^\d,]/g, '');
+                        setEditAmount(rawValue);
+                      }}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-date">Ngày chi</Label>
+                    <Input
+                      id="edit-date"
+                      type="date"
+                      value={editExpenseDate}
+                      onChange={(e) => setEditExpenseDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-description">Mô tả</Label>
+                  <Input
+                    id="edit-description"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                  >
+                    Hủy
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={updateExpenseMutation.isPending}
+                  >
+                    {updateExpenseMutation.isPending ? 'Đang cập nhật...' : 'Lưu thay đổi'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          ) : null}
           {expensesQuery.data?.length ? (
             expensesQuery.data.map((expense) => (
               <div
@@ -675,6 +909,20 @@ export default function AdminBillsPage() {
                         Không có ảnh hóa đơn
                       </p>
                     )}
+                    <div className="flex gap-2 justify-end mt-2">
+                      <button
+                        className="text-sm font-medium text-blue-600 hover:underline"
+                        onClick={() => handleEditClick(expense)}
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        className="text-sm font-medium text-red-600 hover:underline"
+                        onClick={() => handleDeleteClick(expense.id)}
+                      >
+                        Xóa
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

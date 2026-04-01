@@ -46,13 +46,13 @@ export default function MemberDashboardPage() {
   const dashboardQuery = useQuery({
     queryKey: ["dashboard", "member", session?.userId, month],
     queryFn: () => getMemberDashboard(session!.userId, month),
-    enabled: Boolean(session?.userId)
+    enabled: Boolean(session?.userId),
   });
 
   const billsQuery = useQuery({
     queryKey: ["bills", session?.userId, month],
     queryFn: () => getBills({ userId: session!.userId, month }),
-    enabled: Boolean(session?.userId)
+    enabled: Boolean(session?.userId),
   });
 
   const dashboard = dashboardQuery.data;
@@ -66,7 +66,7 @@ export default function MemberDashboardPage() {
     return {
       totalDue,
       openBills,
-      newestNotifications: dashboard?.notifications?.slice(0, 3) ?? []
+      newestNotifications: dashboard?.notifications?.slice(0, 3) ?? [],
     };
   }, [bills, dashboard]);
 

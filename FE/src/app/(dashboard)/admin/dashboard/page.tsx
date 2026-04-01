@@ -1,29 +1,37 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import type { Route } from "next";
-import { BarChart3, CircleAlert, CreditCard, FileText, House, ReceiptText, Wallet } from "lucide-react";
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import Link from 'next/link';
+import type { Route } from 'next';
+import {
+  BarChart3,
+  CircleAlert,
+  CreditCard,
+  FileText,
+  House,
+  ReceiptText,
+  Wallet,
+} from 'lucide-react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-import { StatCard } from "@/components/dashboard/stat-card";
-import { PageHeader } from "@/components/shared/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getAdminDashboard } from "@/features/dashboard/api";
-import { getDemoContext } from "@/features/demo/api";
-import { getExpenses } from "@/features/expenses/api";
-import { getPayments } from "@/features/payments/api";
+import { StatCard } from '@/components/dashboard/stat-card';
+import { PageHeader } from '@/components/shared/page-header';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getAdminDashboard } from '@/features/dashboard/api';
+import { getDemoContext } from '@/features/demo/api';
+import { getExpenses } from '@/features/expenses/api';
+import { getPayments } from '@/features/payments/api';
 
-const currency = new Intl.NumberFormat("vi-VN");
+const currency = new Intl.NumberFormat('vi-VN');
 
 function formatMonthKey(monthKey?: string) {
   if (!monthKey) {
-    return "Kỳ hiện tại";
+    return 'Kỳ hiện tại';
   }
 
-  const [year, month] = monthKey.split("-");
+  const [year, month] = monthKey.split('-');
   return `Tháng ${month}/${year}`;
 }
 
@@ -31,26 +39,26 @@ export default function AdminDashboardPage() {
   const month = new Date().toISOString().slice(0, 7);
 
   const demoContextQuery = useQuery({
-    queryKey: ["demo", "context"],
-    queryFn: getDemoContext
+    queryKey: ['demo', 'context'],
+    queryFn: getDemoContext,
   });
 
   const dashboardQuery = useQuery({
-    queryKey: ["dashboard", "admin", demoContextQuery.data?.houseId, month],
+    queryKey: ['dashboard', 'admin', demoContextQuery.data?.houseId, month],
     queryFn: () => getAdminDashboard(demoContextQuery.data!.houseId, month),
-    enabled: Boolean(demoContextQuery.data?.houseId)
+    enabled: Boolean(demoContextQuery.data?.houseId),
   });
 
   const paymentsQuery = useQuery({
-    queryKey: ["payments", demoContextQuery.data?.houseId, "PENDING"],
-    queryFn: () => getPayments(demoContextQuery.data!.houseId, "PENDING"),
-    enabled: Boolean(demoContextQuery.data?.houseId)
+    queryKey: ['payments', demoContextQuery.data?.houseId, 'PENDING'],
+    queryFn: () => getPayments(demoContextQuery.data!.houseId, 'PENDING'),
+    enabled: Boolean(demoContextQuery.data?.houseId),
   });
 
   const expensesQuery = useQuery({
-    queryKey: ["expenses", demoContextQuery.data?.houseId, month],
+    queryKey: ['expenses', demoContextQuery.data?.houseId, month],
     queryFn: () => getExpenses(demoContextQuery.data!.houseId, month),
-    enabled: Boolean(demoContextQuery.data?.houseId)
+    enabled: Boolean(demoContextQuery.data?.houseId),
   });
 
   const dashboard = dashboardQuery.data;
@@ -60,26 +68,52 @@ export default function AdminDashboardPage() {
 
   const summary = useMemo(() => {
     const totalExpense = Number(dashboard?.totalExpense ?? 0);
-    const totalCollected = Number(latestSettlement?.totalPaid ?? 0);
-    const totalBills = Number(latestSettlement?.totalExpense ?? 0);
+    const totalCollected = Number(dashboard?.totalPaid ?? 0);
+
+    // Tính tổng cần thu thực tế = tổng các netAmount > 0 từ TẤT CẢ settlements trong tháng
+    // netAmount = allocatedAmount - paidByUserAmount
+    // Chỉ lấy phần dương (số tiền mỗi người cần đóng), không lấy phần âm (được hoàn lại)
+    const totalBills =
+      dashboard?.allItems?.reduce(
+        (sum: number, item: { netAmount: number; paidAmount: number }) =>
+          sum + Math.max(Number(item.netAmount), 0),
+        0,
+      ) ?? 0;
+
     const remaining = Math.max(totalBills - totalCollected, 0);
     const unpaidMembers =
-      latestSettlement?.items.filter((item) => Number(item.netAmount) - Number(item.paidAmount) > 0).length ?? 0;
+      dashboard?.allItems?.filter(
+        (item: { netAmount: number; paidAmount: number }) =>
+          Number(item.netAmount) - Number(item.paidAmount) > 0,
+      ).length ?? 0;
 
     return {
       totalExpense,
       totalCollected,
       totalBills,
       remaining,
-      unpaidMembers
+      unpaidMembers,
     };
-  }, [dashboard, latestSettlement]);
+  }, [dashboard]);
 
-  if (demoContextQuery.isLoading || dashboardQuery.isLoading || paymentsQuery.isLoading || expensesQuery.isLoading) {
+  console.log('summary', summary);
+
+  if (
+    demoContextQuery.isLoading ||
+    dashboardQuery.isLoading ||
+    paymentsQuery.isLoading ||
+    expensesQuery.isLoading
+  ) {
     return <Card>Đang tải dashboard admin...</Card>;
   }
 
-  if (demoContextQuery.error || dashboardQuery.error || paymentsQuery.error || expensesQuery.error || !dashboard) {
+  if (
+    demoContextQuery.error ||
+    dashboardQuery.error ||
+    paymentsQuery.error ||
+    expensesQuery.error ||
+    !dashboard
+  ) {
     return <Card>Không tải được dashboard admin.</Card>;
   }
 
@@ -88,30 +122,31 @@ export default function AdminDashboardPage() {
       ? {
           label: `Còn ${currency.format(summary.remaining)} VND cần thu`,
           hint: `${summary.unpaidMembers} thành viên chưa hoàn tất bill`,
-          href: "/admin/payments" as Route
+          href: '/admin/payments' as Route,
         }
       : null,
     pendingPayments.length > 0
       ? {
           label: `${pendingPayments.length} giao dịch đang chờ xác nhận`,
-          hint: "Duyệt payment proof để cập nhật bill ngay",
-          href: "/admin/payments" as Route
+          hint: 'Duyệt payment proof để cập nhật bill ngay',
+          href: '/admin/payments' as Route,
         }
       : null,
     {
-      label: "Thêm khoản chi mới",
-      hint: "Cập nhật điện, nước, wifi, sửa chữa trong ngày",
-      href: "/admin/bills" as Route
-    }
+      label: 'Thêm khoản chi mới',
+      hint: 'Cập nhật điện, nước, wifi, sửa chữa trong ngày',
+      href: '/admin/bills' as Route,
+    },
   ].filter(Boolean) as Array<{ label: string; hint: string; href: Route }>;
 
   return (
-    <div className="space-y-6 pb-16"> {/* Thêm padding dưới cho thiết bị di động */}
+    <div className="space-y-6 pb-16">
+      {' '}
+      {/* Thêm padding dưới cho thiết bị di động */}
       <PageHeader
         title="Dashboard admin"
         description="Tập trung vào việc cần làm hôm nay: chốt kỳ, thu tiền và xử lý payment proof."
       />
-
       <Card className="overflow-hidden bg-gradient-to-br from-pine to-ink text-white">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-4">
@@ -119,22 +154,33 @@ export default function AdminDashboardPage() {
               {formatMonthKey(latestSettlement?.monthKey ?? month)}
             </Badge>
             <div>
-              <h2 className="text-3xl font-semibold">Hôm nay admin cần xử lý 3 việc chính</h2>
+              <h2 className="text-3xl font-semibold">
+                Hôm nay admin cần xử lý 3 việc chính
+              </h2>
               <p className="mt-2 max-w-2xl text-sm text-white/75">
-                Cập nhật khoản chi, chốt công nợ kỳ hiện tại và duyệt các thanh toán đang chờ xác nhận.
+                Cập nhật khoản chi, chốt công nợ kỳ hiện tại và duyệt các thanh
+                toán đang chờ xác nhận.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link href="/admin/bills">
-                <Button className="w-full bg-white text-ink hover:bg-white/90">Tạo khoản chi / chốt kỳ</Button>
+                <Button className="w-full bg-white text-ink hover:bg-white/90">
+                  Tạo khoản chi / chốt kỳ
+                </Button>
               </Link>
               <Link href="/admin/payments">
-                <Button className="w-full border border-white/20 bg-transparent text-white hover:bg-white/10" variant="ghost">
+                <Button
+                  className="w-full border border-white/20 bg-transparent text-white hover:bg-white/10"
+                  variant="ghost"
+                >
                   Xác nhận thanh toán
                 </Button>
               </Link>
               <Link href="/admin/members">
-                <Button className="w-full border border-white/20 bg-transparent text-white hover:bg-white/10" variant="ghost">
+                <Button
+                  className="w-full border border-white/20 bg-transparent text-white hover:bg-white/10"
+                  variant="ghost"
+                >
                   Quản lý thành viên
                 </Button>
               </Link>
@@ -142,7 +188,9 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="rounded-[28px] bg-white/10 p-5 backdrop-blur">
-            <p className="text-sm uppercase tracking-[0.18em] text-white/60">Tiến độ kỳ hiện tại</p>
+            <p className="text-sm uppercase tracking-[0.18em] text-white/60">
+              Tiến độ kỳ hiện tại
+            </p>
             <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span>Tổng cần thu</span>
@@ -159,20 +207,19 @@ export default function AdminDashboardPage() {
                     width:
                       summary.totalBills > 0
                         ? `${Math.min((summary.totalCollected / summary.totalBills) * 100, 100)}%`
-                        : "0%"
+                        : '0%',
                   }}
                 />
               </div>
               <p className="text-sm text-white/75">
                 {summary.unpaidMembers > 0
                   ? `${summary.unpaidMembers} thành viên vẫn còn số dư chưa đóng.`
-                  : "Tất cả bill kỳ hiện tại đã được xử lý."}
+                  : 'Tất cả bill kỳ hiện tại đã được xử lý.'}
               </p>
             </div>
           </div>
         </div>
       </Card>
-
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Tổng chi tháng này"
@@ -199,7 +246,6 @@ export default function AdminDashboardPage() {
           icon={<CreditCard className="h-5 w-5" />}
         />
       </section>
-
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <CardHeader>
@@ -212,7 +258,7 @@ export default function AdminDashboardPage() {
                 href={task.href}
                 className="flex items-center justify-between rounded-2xl border border-black/10 px-4 py-4 transition hover:bg-secondary"
               >
-                <div>
+                <div className="md:w-auto w-[240px]">
                   <p className="font-medium">{task.label}</p>
                   <p className="text-sm text-muted-foreground">{task.hint}</p>
                 </div>
@@ -227,38 +273,52 @@ export default function AdminDashboardPage() {
             <CardTitle>Phím tắt tác vụ</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-3">
-            <Link href="/admin/bills" className="rounded-2xl bg-sand px-4 py-4 transition hover:bg-secondary">
+            <Link
+              href="/admin/bills"
+              className="rounded-2xl bg-sand px-4 py-4 transition hover:bg-secondary"
+            >
               <div className="flex items-center gap-3">
                 <ReceiptText className="h-5 w-5 text-pine" />
                 <div>
                   <p className="font-medium">Thêm khoản chi</p>
-                  <p className="text-sm text-muted-foreground">Nhập hóa đơn và chọn người chia bill</p>
+                  <p className="text-sm text-muted-foreground">
+                    Nhập hóa đơn và chọn người chia bill
+                  </p>
                 </div>
               </div>
             </Link>
-            <Link href="/admin/payments" className="rounded-2xl bg-sand px-4 py-4 transition hover:bg-secondary">
+            <Link
+              href="/admin/payments"
+              className="rounded-2xl bg-sand px-4 py-4 transition hover:bg-secondary"
+            >
               <div className="flex items-center gap-3">
                 <CreditCard className="h-5 w-5 text-pine" />
                 <div>
                   <p className="font-medium">Duyệt thanh toán</p>
-                  <p className="text-sm text-muted-foreground">Xác nhận proof và đối soát bill</p>
+                  <p className="text-sm text-muted-foreground">
+                    Xác nhận proof và đối soát bill
+                  </p>
                 </div>
               </div>
             </Link>
-            <Link href="/admin/rooms" className="rounded-2xl bg-sand px-4 py-4 transition hover:bg-secondary">
+            <Link
+              href="/admin/rooms"
+              className="rounded-2xl bg-sand px-4 py-4 transition hover:bg-secondary"
+            >
               <div className="flex items-center gap-3">
                 <House className="h-5 w-5 text-pine" />
                 <div>
                   <p className="font-medium">Cập nhật phòng</p>
-                  <p className="text-sm text-muted-foreground">Thêm phòng và kiểm tra sức chứa hiện tại</p>
+                  <p className="text-sm text-muted-foreground">
+                    Thêm phòng và kiểm tra sức chứa hiện tại
+                  </p>
                 </div>
               </div>
             </Link>
           </CardContent>
         </Card>
       </section>
-
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
             <CardTitle>Khoản chi gần đây</CardTitle>
@@ -269,17 +329,25 @@ export default function AdminDashboardPage() {
           <CardContent className="space-y-3">
             {recentExpenses.length ? (
               recentExpenses.map((expense) => (
-                <div key={expense.id} className="flex items-center justify-between rounded-2xl bg-secondary px-4 py-4">
+                <div
+                  key={expense.id}
+                  className="flex items-center justify-between rounded-2xl bg-secondary px-4 py-4"
+                >
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{expense.title}</p>
                       <Badge>{expense.category}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {new Date(expense.expenseDate).toLocaleDateString("vi-VN")} | {expense.participantCount} người chia
+                      {new Date(expense.expenseDate).toLocaleDateString(
+                        'vi-VN',
+                      )}{' '}
+                      | {expense.participantCount} người chia
                     </p>
                   </div>
-                  <p className="font-semibold">{currency.format(expense.amount)} VND</p>
+                  <p className="font-semibold">
+                    {currency.format(expense.amount)} VND
+                  </p>
                 </div>
               ))
             ) : (
@@ -297,13 +365,17 @@ export default function AdminDashboardPage() {
           <CardContent className="space-y-3">
             <div className="rounded-2xl bg-sand p-4">
               <div className="flex items-center justify-between">
-                <p className="font-medium">{formatMonthKey(latestSettlement?.monthKey ?? month)}</p>
-                <Badge variant={summary.remaining > 0 ? "warning" : "success"}>
-                  {summary.remaining > 0 ? "Đang thu tiền" : "Đã hoàn tất"}
+                <p className="font-medium">
+                  {formatMonthKey(latestSettlement?.monthKey ?? month)}
+                </p>
+                <Badge variant={summary.remaining > 0 ? 'warning' : 'success'}>
+                  {summary.remaining > 0 ? 'Đang thu tiền' : 'Đã hoàn tất'}
                 </Badge>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Kỳ này đã ghi nhận {currency.format(summary.totalBills)} VND tiền bill và {currency.format(summary.totalCollected)} VND đã thu.
+                Kỳ này đã ghi nhận {currency.format(summary.totalBills)} VND
+                tiền bill và {currency.format(summary.totalCollected)} VND đã
+                thu.
               </p>
             </div>
 
@@ -315,7 +387,7 @@ export default function AdminDashboardPage() {
                   <p className="text-sm text-muted-foreground">
                     {summary.totalBills > 0
                       ? `${Math.round((summary.totalCollected / summary.totalBills) * 100)}% bill đã được thanh toán`
-                      : "Chưa có settlement cho kỳ này"}
+                      : 'Chưa có settlement cho kỳ này'}
                   </p>
                 </div>
               </div>

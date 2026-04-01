@@ -41,6 +41,19 @@ export default function LoginPage() {
     router.replace(getDefaultRoute(session));
   }, [router]);
 
+  // Lắng nghe sự kiện logout để reload trang login nếu cần
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      // Clear session và reload để đảm bảo state được làm mới
+      window.location.reload();
+    };
+
+    window.addEventListener('tro-auth-logout', handleAuthLogout as EventListener);
+    return () => {
+      window.removeEventListener('tro-auth-logout', handleAuthLogout as EventListener);
+    };
+  }, []);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');

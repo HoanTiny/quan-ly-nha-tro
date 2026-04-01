@@ -424,6 +424,42 @@ export function MemberBillDetail({ billId }: MemberBillDetailProps) {
               </div>
             ) : null}
 
+            {/* Chỉ hiển thị lịch sử thanh toán đang chờ xác nhận */}
+            {selectedPayments.some((p) => p.status === "PENDING") ? (
+              <div className="space-y-2 border-t pt-4">
+                <p className="text-sm font-medium">Minh chứng đang chờ xác nhận</p>
+                {selectedPayments.filter((p) => p.status === "PENDING").map((payment) => (
+                  <div key={payment.id} className="rounded-2xl bg-warning/20 px-4 py-3 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium">
+                        {payment.amount.toLocaleString("vi-VN")} VND - {getPaymentStatusLabel(payment.status)}
+                      </p>
+                      {payment.proofUrl ? (
+                        <a href={payment.proofUrl} target="_blank" className="text-pine underline" rel="noreferrer">
+                          Xem ảnh
+                        </a>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-muted-foreground">
+                      {payment.transactionRef ? `Mã GD: ${payment.transactionRef}` : "Chưa có mã giao dịch"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : selectedPayments.some((p) => p.status === "SUCCEEDED") ? (
+              <div className="space-y-2 border-t pt-4">
+                <p className="text-sm font-medium text-muted-foreground">Lịch sử thanh toán</p>
+                <div className="rounded-2xl bg-success/10 px-4 py-3 text-sm text-pine">
+                  <div className="flex items-center justify-between">
+                    <span>Đã thanh toán xong</span>
+                    <span className="font-medium">
+                      {selectedPayments.filter((p) => p.status === "SUCCEEDED").reduce((sum, p) => sum + p.amount, 0).toLocaleString("vi-VN")} VND
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <Label htmlFor="transactionRef">Mã giao dịch</Label>
@@ -460,29 +496,6 @@ export function MemberBillDetail({ billId }: MemberBillDetailProps) {
                       : "Gửi xác nhận thanh toán"}
               </Button>
             </form>
-
-            {selectedPayments.length ? (
-              <div className="space-y-2 border-t pt-4">
-                <p className="text-sm font-medium">Lịch sử gửi cho {selectedPayee?.fullName}</p>
-                {selectedPayments.map((payment) => (
-                  <div key={payment.id} className="rounded-2xl bg-secondary px-4 py-3 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-medium">
-                        {payment.amount.toLocaleString("vi-VN")} VND - {getPaymentStatusLabel(payment.status)}
-                      </p>
-                      {payment.proofUrl ? (
-                        <a href={payment.proofUrl} target="_blank" className="text-pine underline" rel="noreferrer">
-                          Xem ảnh
-                        </a>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-muted-foreground">
-                      {payment.transactionRef ? `Mã GD: ${payment.transactionRef}` : "Chưa có mã giao dịch"}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : null}
           </CardContent>
         </Card>
       </div>

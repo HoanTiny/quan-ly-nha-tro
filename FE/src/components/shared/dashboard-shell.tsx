@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
+import React from "react";
 import {
   Bell,
   CreditCard,
@@ -10,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   MenuSquare,
+  PieChart,
   Settings,
   Users,
   Wallet,
@@ -24,6 +26,7 @@ const adminNav = [
   { href: "/admin/rooms", label: "Phòng", icon: MenuSquare },
   { href: "/admin/members", label: "Thành viên", icon: Users },
   { href: "/admin/bills", label: "Chi phí", icon: FileText },
+  { href: "/admin/expenses", label: "Tổng kết", icon: PieChart },
   { href: "/admin/payments", label: "Thanh toán", icon: Wallet },
   { href: "/admin/notifications", label: "Thông báo", icon: Bell },
   { href: "/admin/settings", label: "Cài đặt", icon: Settings }
@@ -32,6 +35,7 @@ const adminNav = [
 const memberNav = [
   { href: "/member/dashboard", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/member/bills", label: "Hóa đơn", icon: FileText },
+  { href: "/member/expenses", label: "Tổng kết", icon: PieChart },
   { href: "/member/payments", label: "Thanh toán", icon: CreditCard },
   { href: "/member/notifications", label: "Thông báo", icon: Bell },
   { href: "/member/profile", label: "Cá nhân", icon: Users }
@@ -47,6 +51,21 @@ export function DashboardShell({ children }: Readonly<{ children: React.ReactNod
     clearAuthSession();
     router.replace("/login");
   };
+
+  // Lắng nghe sự kiện logout từ API client khi token hết hạn
+  React.useEffect(() => {
+    const handleAuthLogout = (event: CustomEvent<{ reason: string }>) => {
+      if (event.detail?.reason === "unauthorized") {
+        clearAuthSession();
+        router.replace("/login");
+      }
+    };
+
+    window.addEventListener("tro-auth-logout", handleAuthLogout as EventListener);
+    return () => {
+      window.removeEventListener("tro-auth-logout", handleAuthLogout as EventListener);
+    };
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-background">

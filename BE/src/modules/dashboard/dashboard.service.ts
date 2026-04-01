@@ -27,22 +27,45 @@ export class DashboardService {
       this.prisma.monthlySettlement.findMany({
         where: settlementWhere,
         include: { items: true },
-        take: 1,
         orderBy: { monthKey: 'desc' },
       }),
     ]);
 
     const totalExpense = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
+
+    // Gom nhóm các settlement items theo membershipId để tổng hợp
+    const itemsByMember = new Map<string, { netAmount: number; paidAmount: number }>();
+
+    for (const settlement of settlements) {
+      for (const item of settlement.items) {
+        const existing = itemsByMember.get(item.membershipId) || { netAmount: 0, paidAmount: 0 };
+        existing.netAmount += Number(item.netAmount);
+        existing.paidAmount += Number(item.paidAmount);
+        itemsByMember.set(item.membershipId, existing);
+      }
+    }
+
+    const allItems = Array.from(itemsByMember.entries()).map(([membershipId, data]) => ({
+      membershipId,
+      netAmount: data.netAmount,
+      paidAmount: data.paidAmount,
+    }));
+
+    const totalPaid = settlements.reduce((sum, s) => sum + Number(s.totalPaid), 0);
+    const totalNetAmount = allItems.reduce((sum, item) => sum + item.netAmount, 0);
+
     const latestSettlement = settlements[0] ?? null;
     const overdueCount =
-      latestSettlement?.items.filter((item) => Number(item.netAmount) - Number(item.paidAmount) > 0)
-        .length ?? 0;
+      allItems.filter((item) => item.netAmount - item.paidAmount > 0).length ?? 0;
 
     return {
       rooms,
       totalExpense,
       overdueCount,
       latestSettlement,
+      allItems,
+      totalPaid,
+      totalNetAmount,
     };
   }
 

@@ -310,7 +310,7 @@ export default function AdminMembersPage() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <select
                       value={member.membershipId ? roomSelections[member.membershipId] ?? "" : ""}
                       onChange={(event) =>
@@ -321,7 +321,7 @@ export default function AdminMembersPage() {
                             }))
                           : undefined
                       }
-                      className="h-10 min-w-52 rounded-xl border bg-background px-3 py-2 text-sm"
+                      className="h-10 w-full rounded-xl border bg-background px-3 py-2 text-sm sm:w-48"
                       disabled={!member.isActive || !member.membershipId}
                     >
                       <option value="">Chưa xếp phòng</option>
@@ -332,35 +332,38 @@ export default function AdminMembersPage() {
                       ))}
                     </select>
 
-                    <Button
-                      variant="outline"
-                      disabled={!member.isActive || !member.membershipId || assignRoomMutation.isPending}
-                      onClick={() =>
-                        member.membershipId
-                          ? assignRoomMutation.mutate({
-                              membershipId: member.membershipId,
-                              roomId: roomSelections[member.membershipId]
-                            })
-                          : undefined
-                      }
-                    >
-                      Lưu phòng
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      className="text-coral hover:bg-destructive"
-                      disabled={!member.isActive || !member.membershipId || removeMemberMutation.isPending}
-                      onClick={() => {
-                        if (!member.membershipId || !window.confirm(`Xóa ${member.fullName} khỏi nhà trọ?`)) {
-                          return;
+                    <div className="flex gap-2">
+                      <Button
+                        variant="primary"
+                        className="h-9 px-4 text-sm"
+                        disabled={!member.isActive || !member.membershipId || assignRoomMutation.isPending}
+                        onClick={() =>
+                          member.membershipId
+                            ? assignRoomMutation.mutate({
+                                membershipId: member.membershipId,
+                                roomId: roomSelections[member.membershipId]
+                              })
+                            : undefined
                         }
+                      >
+                        Lưu
+                      </Button>
 
-                        removeMemberMutation.mutate(member.membershipId);
-                      }}
-                    >
-                      Xóa khỏi nhà
-                    </Button>
+                      <Button
+                        variant="outline"
+                        className="h-9 px-4 text-sm text-red-600 hover:text-red-700"
+                        disabled={!member.isActive || !member.membershipId || removeMemberMutation.isPending}
+                        onClick={() => {
+                          if (!member.membershipId || !window.confirm(`Xóa ${member.fullName} khỏi nhà trọ?`)) {
+                            return;
+                          }
+
+                          removeMemberMutation.mutate(member.membershipId);
+                        }}
+                      >
+                        Xóa
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

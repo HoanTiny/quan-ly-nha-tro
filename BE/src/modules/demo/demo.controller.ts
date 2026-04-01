@@ -1,4 +1,4 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Post, Query } from '@nestjs/common';
 import { DemoService } from './demo.service';
 
 @Controller('demo')
@@ -13,5 +13,10 @@ export class DemoController {
   @Get('context')
   context() {
     return this.demoService.getContext();
+  }
+
+  @Post('reset-expenses')
+  resetExpenses(@Query('houseId') houseId?: string) {
+    return this.demoService.resetExpenses(houseId);
   }
 }

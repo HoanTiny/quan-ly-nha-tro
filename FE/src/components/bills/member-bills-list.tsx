@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import type { Route } from "next";
-import { useQuery } from "@tanstack/react-query";
+import Link from 'next/link';
+import type { Route } from 'next';
+import { useQuery } from '@tanstack/react-query';
 
-import { getBills } from "@/features/bills/api";
-import { useAuthSession } from "@/lib/auth/use-auth-session";
-import { queryKeys } from "@/lib/query/query-keys";
-import { BillStatusBadge } from "./bill-status-badge";
-import { Card } from "@/components/ui/card";
+import { getBills } from '@/features/bills/api';
+import { useAuthSession } from '@/lib/auth/use-auth-session';
+import { queryKeys } from '@/lib/query/query-keys';
+import { BillStatusBadge } from './bill-status-badge';
+import { Card } from '@/components/ui/card';
 
 export function MemberBillsList() {
   const session = useAuthSession();
@@ -16,7 +16,7 @@ export function MemberBillsList() {
   const billsQuery = useQuery({
     queryKey: queryKeys.bills.list({ userId: session?.userId }),
     queryFn: () => getBills({ userId: session!.userId }),
-    enabled: Boolean(session?.userId)
+    enabled: Boolean(session?.userId),
   });
 
   if (billsQuery.isLoading || !session) {
@@ -31,8 +31,10 @@ export function MemberBillsList() {
     return <Card>Chưa có hóa đơn nào cho tài khoản này.</Card>;
   }
 
+  console.log('billsQuery', billsQuery.data);
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 flex flex-col">
       {billsQuery.data.map((bill) => (
         <Link key={bill.id} href={`/member/bills/${bill.id}` as Route}>
           <Card className="transition hover:-translate-y-0.5 hover:shadow-lg">
@@ -43,12 +45,16 @@ export function MemberBillsList() {
                 </p>
                 <p className="text-sm text-black/55">{bill.roomName}</p>
               </div>
+              <div>30 Ngay lam tik tok</div>
 
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className="font-semibold">{bill.balance?.toLocaleString("vi-VN")} VND</p>
+                  <p className="font-semibold">
+                    {bill.amount?.toLocaleString('vi-VN')} VND
+                  </p>
                   <p className="text-sm text-black/55">
-                    Hạn đóng {new Date(bill.dueDate).toLocaleDateString("vi-VN")}
+                    Hạn đóng{' '}
+                    {new Date(bill.dueDate).toLocaleDateString('vi-VN')}
                   </p>
                 </div>
                 <BillStatusBadge status={bill.status} />

@@ -1,4 +1,4 @@
-import { getAuthSession } from "@/lib/auth/session";
+import { getAuthSession, clearAuthSession } from "@/lib/auth/session";
 
 type QueryParams = Record<string, string | number | boolean | undefined>;
 
@@ -35,6 +35,14 @@ async function request<T>(path: string, init?: RequestInit, params?: QueryParams
   });
 
   if (!response.ok) {
+    // Xử lý lỗi 401 - Unauthorized: clear session và báo hiệu cần đăng xuất
+    if (response.status === 401) {
+      clearAuthSession();
+      window.dispatchEvent(new CustomEvent("tro-auth-logout", {
+        detail: { reason: "unauthorized" }
+      }));
+    }
+
     let message = `Yeu cau that bai (${response.status})`;
 
     try {

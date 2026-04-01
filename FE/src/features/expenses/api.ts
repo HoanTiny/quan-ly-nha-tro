@@ -9,11 +9,42 @@ type CreateExpensePayload = {
   title: string;
   description?: string;
   category: string;
-  splitMethod: "EQUAL";
+  splitMethod: "EQUAL" | "BY_WEIGHT";
   totalAmount: number;
   expenseDate: string;
   receiptImageUrl?: string;
   participantMembershipIds: string[];
+  participantWeights?: { membershipId: string; weight: number }[];
+};
+
+export type MemberExpenseSummary = {
+  monthKey: string;
+  previousMonthKey: string;
+  currentTotal: number;
+  previousTotal: number;
+  percentageChange: number;
+  expenses: Array<{
+    id: string;
+    title: string;
+    category: string;
+    amount: number;
+    expenseDate: string;
+  }>;
+};
+
+export type AdminExpenseSummary = {
+  membershipId: string;
+  userId: string;
+  fullName: string;
+  roomName?: string | null;
+  totalExpense: number;
+  expenses: Array<{
+    id: string;
+    title: string;
+    category: string;
+    amount: number;
+    expenseDate: string;
+  }>;
 };
 
 export async function getExpenses(houseId: string, month?: string) {
@@ -29,12 +60,20 @@ export async function getExpenses(houseId: string, month?: string) {
     monthKey: expense.monthKey,
     receiptImageUrl: expense.receiptImageUrl,
     payerName: expense.payer?.fullName,
-    participantCount: expense.allocations?.length ?? 0
+    participantCount: expense.allocations?.length ?? 0,
   })) satisfies ExpenseRecord[];
 }
 
 export async function createExpense(payload: CreateExpensePayload) {
   return apiClient.post("/expenses", payload);
+}
+
+export async function updateExpense(expenseId: string, payload: Partial<CreateExpensePayload>) {
+  return apiClient.put(`/expenses/${expenseId}`, payload);
+}
+
+export async function deleteExpense(expenseId: string) {
+  return apiClient.delete(`/expenses/${expenseId}`);
 }
 
 export async function getSettlements(houseId: string, month?: string) {
@@ -46,7 +85,7 @@ export async function getSettlements(houseId: string, month?: string) {
     status: settlement.status,
     totalExpense: Number(settlement.totalExpense),
     totalPaid: Number(settlement.totalPaid),
-    itemsCount: settlement.items?.length ?? 0
+    itemsCount: settlement.items?.length ?? 0,
   })) satisfies SettlementRecord[];
 }
 
@@ -57,4 +96,19 @@ export async function generateSettlement(payload: {
   dueDate: string;
 }) {
   return apiClient.post("/settlements/generate", payload);
+}
+
+export async function getMemberExpenseSummary(params: {
+  userId: string;
+  houseId: string;
+  month: string;
+}) {
+  return apiClient.get<MemberExpenseSummary>("/expenses/summary/member", params);
+}
+
+export async function getAdminExpenseSummary(params: {
+  houseId: string;
+  month: string;
+}) {
+  return apiClient.get<AdminExpenseSummary[]>("/expenses/summary/admin", params);
 }

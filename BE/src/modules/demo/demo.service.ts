@@ -189,6 +189,48 @@ export class DemoService {
     };
   }
 
+  async resetExpenses(houseId?: string) {
+    const context = houseId ? { houseId } : await this.findContext();
+
+    if (!context || !('houseId' in context) || !context.houseId) {
+      throw new Error('Demo context not found. Run bootstrap first or provide houseId.');
+    }
+
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}`;
+
+    // Xóa tất cả expense allocations và expenses của tháng hiện tại
+    await this.prisma.$transaction(async (tx) => {
+      // Xóa allocations trước (foreign key constraint)
+      await tx.expenseAllocation.deleteMany({
+        where: {
+          expense: {
+            houseId: context.houseId,
+            monthKey,
+          },
+        },
+      });
+
+      // Xóa expenses
+      await tx.expense.deleteMany({
+        where: {
+          houseId: context.houseId,
+          monthKey,
+        },
+      });
+
+      // Xóa settlements của tháng
+      await tx.monthlySettlement.deleteMany({
+        where: {
+          houseId: context.houseId,
+          monthKey,
+        },
+      });
+    });
+
+    return { success: true, message: 'Đã reset dữ liệu chi phí tháng hiện tại.' };
+  }
+
   private async findContext() {
     const house = await this.prisma.boardingHouse.findUnique({
       where: { code: 'TRO-DEMO' },

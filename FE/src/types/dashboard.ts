@@ -2,6 +2,13 @@ export type AdminDashboard = {
   rooms: number;
   totalExpense: number;
   overdueCount: number;
+  totalPaid: number;
+  totalNetAmount: number;
+  allItems: Array<{
+    membershipId: string;
+    netAmount: number;
+    paidAmount: number;
+  }>;
   latestSettlement?: {
     id: string;
     monthKey: string;

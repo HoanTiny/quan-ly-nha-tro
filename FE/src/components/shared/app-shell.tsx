@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Bell, Home, Receipt, Users, type LucideIcon } from 'lucide-react';
+import { Bell, Home, Receipt, Users, PieChart, type LucideIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -15,12 +15,14 @@ const adminNav = [
   { href: '/admin/dashboard', label: 'Tổng quan', icon: Home },
   { href: '/admin/rooms', label: 'Phòng', icon: Users },
   { href: '/admin/bills', label: 'Chi phí', icon: Receipt },
+  { href: '/admin/expenses', label: 'Tổng kết', icon: PieChart },
   { href: '/admin/payments', label: 'Thanh toán', icon: Bell },
 ] satisfies ReadonlyArray<{ href: Route; label: string; icon: LucideIcon }>;
 
 const memberNav = [
   { href: '/member/dashboard', label: 'Tổng quan', icon: Home },
   { href: '/member/bills', label: 'Hóa đơn', icon: Receipt },
+  { href: '/member/expenses', label: 'Tổng kết', icon: PieChart },
   { href: '/member/notifications', label: 'Thông báo', icon: Bell },
   { href: '/member/profile', label: 'Cá nhân', icon: Users },
 ] satisfies ReadonlyArray<{ href: Route; label: string; icon: LucideIcon }>;
@@ -78,7 +80,7 @@ export function AppShell({ role, title, children }: AppShellProps) {
 
           {/* Mobile Bottom Navigation */}
           <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md rounded-t-2xl border-t border-neutral-300 bg-background/95 backdrop-blur lg:hidden">
-            <div className="grid grid-cols-4">
+            <div className="grid grid-cols-5">
               {nav.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);

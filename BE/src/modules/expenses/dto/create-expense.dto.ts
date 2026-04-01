@@ -5,9 +5,20 @@ import {
   IsDateString,
   IsEnum,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class ParticipantWeightDto {
+  @IsString()
+  membershipId!: string;
+
+  @IsNumber()
+  weight!: number;
+}
 
 export class CreateExpenseDto {
   @IsString()
@@ -58,4 +69,10 @@ export class CreateExpenseDto {
   @ArrayNotEmpty()
   @IsString({ each: true })
   participantUserIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ParticipantWeightDto)
+  participantWeights?: { membershipId: string; weight: number }[];
 }
