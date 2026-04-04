@@ -16,6 +16,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { SettlementsModule } from './modules/settlements/settlements.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { EvnModule } from './modules/evn/evn.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -40,6 +41,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     NotificationsModule,
     DashboardModule,
     UploadsModule,
+    EvnModule,
   ],
   providers: [JwtAuthGuard, RolesGuard],
 })

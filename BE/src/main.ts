@@ -37,6 +37,7 @@ async function bootstrap() {
     .addTag('settlements', 'Settlement management')
     .addTag('payments', 'Payment management')
     .addTag('uploads', 'File uploads')
+    .addTag('evn', 'EVN electricity meter integration')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

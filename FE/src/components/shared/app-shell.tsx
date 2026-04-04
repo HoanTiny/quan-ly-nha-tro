@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Bell, Home, Receipt, Users, PieChart, type LucideIcon } from 'lucide-react';
+import { Bell, Home, Receipt, Users, PieChart, Zap, type LucideIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -17,14 +17,15 @@ const adminNav = [
   { href: '/admin/bills', label: 'Chi phí', icon: Receipt },
   { href: '/admin/expenses', label: 'Tổng kết', icon: PieChart },
   { href: '/admin/payments', label: 'Thanh toán', icon: Bell },
+  { href: '/admin/evn', label: 'EVN Test', icon: Zap },
 ] satisfies ReadonlyArray<{ href: Route; label: string; icon: LucideIcon }>;
 
 const memberNav = [
   { href: '/member/dashboard', label: 'Tổng quan', icon: Home },
   { href: '/member/bills', label: 'Hóa đơn', icon: Receipt },
   { href: '/member/expenses', label: 'Tổng kết', icon: PieChart },
+  { href: '/member/electricity', label: 'Điện năng', icon: Zap },
   { href: '/member/notifications', label: 'Thông báo', icon: Bell },
-  { href: '/member/profile', label: 'Cá nhân', icon: Users },
 ] satisfies ReadonlyArray<{ href: Route; label: string; icon: LucideIcon }>;
 
 export function AppShell({ role, title, children }: AppShellProps) {

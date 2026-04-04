@@ -4,7 +4,12 @@
       "Bash(npx prisma:*)",
       "Bash(taskkill /F /IM node.exe)",
       "Bash(taskkill /IM node.exe /F)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(taskkill /F /PID 3608)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3001)",
+      "Bash(Stop-Process -Id 16448 -Force)"
     ]
   }
 }
