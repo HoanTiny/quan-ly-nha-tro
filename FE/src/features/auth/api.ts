@@ -23,6 +23,7 @@ type BackendLoginResponse = {
     fullName?: string;
     role: BackendHouseRole;
     houseId?: string | null;
+    houseRoles?: Record<string, BackendHouseRole>;
   };
 };
 
@@ -36,6 +37,7 @@ type BackendCurrentUserResponse = {
   fullName: string;
   role: BackendHouseRole;
   houseId?: string | null;
+  houseRoles?: Record<string, BackendHouseRole>;
 };
 
 export async function login(payload: LoginPayload) {
@@ -47,6 +49,7 @@ export async function login(payload: LoginPayload) {
     fullName: response.user.fullName ?? response.user.email,
     role: mapRole(response.user.role),
     houseId: response.user.houseId ?? null,
+    houseRoles: response.user.houseRoles,
     accessToken: response.accessToken
   } satisfies AuthSession;
 }
@@ -60,6 +63,7 @@ export async function register(payload: RegisterPayload) {
     fullName: response.user.fullName ?? response.user.email,
     role: mapRole(response.user.role),
     houseId: response.user.houseId ?? null,
+    houseRoles: response.user.houseRoles,
     accessToken: response.accessToken
   } satisfies AuthSession;
 }
@@ -72,6 +76,7 @@ export async function getMe() {
     email: response.email,
     fullName: response.fullName,
     role: mapRole(response.role),
-    houseId: response.houseId ?? null
+    houseId: response.houseId ?? null,
+    houseRoles: response.houseRoles
   } satisfies Omit<AuthSession, "accessToken">;
 }

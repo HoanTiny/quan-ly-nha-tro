@@ -88,6 +88,8 @@ model User {
   paidExpenses      Expense[]               @relation("expense_payer")
   receivedPayments  SettlementPayment[]     @relation("payment_payee")
   notifications     NotificationRecipient[]
+  evnAccessGrants   EvnCredentialAccess[]   @relation("EvnCredentialAccessGrantedBy")
+  evnCredentials    EvnCredentialAccess[]   @relation("EvnCredentialAccessUser")
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
 }
@@ -104,6 +106,7 @@ model BoardingHouse {
   expenses        Expense[]
   settlements     MonthlySettlement[]
   paymentAccounts PaymentAccount[]
+  evnCredentials  EvnCredential[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 }
@@ -267,4 +270,38 @@ model NotificationRecipient {
   user           User               @relation(fields: [userId], references: [id])
 
   @@unique([notificationId, userId])
+}
+
+model EvnCredential {
+  id               String              @id @default(cuid())
+  houseId          String
+  userId           String
+  username         String              // EVN username (encrypted)
+  password         String              // EVN password (encrypted)
+  customerId       String?             // EVN customer ID (optional cache)
+  meterNumber      String?             // EVN meter number (optional cache)
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  house            BoardingHouse       @relation(fields: [houseId], references: [id], onDelete: Cascade)
+  accessGrants     EvnCredentialAccess[]
+
+  @@index([houseId, isActive])
+  @@index([userId])
+}
+
+model EvnCredentialAccess {
+  id              String        @id @default(cuid())
+  credentialId    String
+  userId          String
+  grantedAt       DateTime      @default(now())
+  grantedByUserId String
+
+  credential      EvnCredential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  grantedBy       User          @relation(fields: [grantedByUserId], references: [id], name: "EvnCredentialAccessGrantedBy")
+  user            User          @relation(fields: [userId], references: [id], name: "EvnCredentialAccessUser")
+
+  @@unique([credentialId, userId])
+  @@index([credentialId])
+  @@index([userId])
 }

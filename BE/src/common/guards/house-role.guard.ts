@@ -22,14 +22,33 @@ export class HouseRoleGuard implements CanActivate {
     const user = request.user as AuthUser | undefined;
     const houseId = request.params.houseId as string | undefined;
 
-    if (!user || !houseId) {
-      throw new ForbiddenException('Missing authenticated user or house context');
+    if (!user) {
+      throw new ForbiddenException('Missing authenticated user');
     }
 
-    const houseRole = user.houseRoles?.[houseId];
+    // If houseId is in params, use it (traditional route-based house context)
+    // Otherwise, check if user has any house role (for endpoints like EVN that use user's houseRoles)
+    if (houseId) {
+      const houseRole = user.houseRoles?.[houseId];
+      if (!houseRole || !roles.includes(houseRole)) {
+        throw new ForbiddenException('Insufficient role for this boarding house');
+      }
+    } else {
+      // No houseId in params - check if user has at least one house with required role
+      const userHouseIds = Object.keys(user.houseRoles ?? {});
+      if (userHouseIds.length === 0) {
+        throw new ForbiddenException('User is not a member of any house');
+      }
 
-    if (!houseRole || !roles.includes(houseRole)) {
-      throw new ForbiddenException('Insufficient role for this boarding house');
+      // Check if user has any of the required roles in any house
+      const hasRequiredRole = userHouseIds.some(id => {
+        const userRole = user.houseRoles?.[id];
+        return userRole && roles.includes(userRole);
+      });
+
+      if (!hasRequiredRole) {
+        throw new ForbiddenException('Insufficient role for this operation');
+      }
     }
 
     return true;

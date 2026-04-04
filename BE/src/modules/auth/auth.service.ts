@@ -61,6 +61,7 @@ export class AuthService {
       fullName: session.user.fullName,
       role: session.user.role,
       houseId: session.user.houseId,
+      houseRoles: session.user.houseRoles,
     };
   }
 
@@ -71,7 +72,8 @@ export class AuthService {
       session.user.email,
       session.user.fullName,
       session.user.role,
-      session.user.houseId ?? undefined,
+      session.user.houseId,
+      session.user.houseRoles,
     );
   }
 
@@ -84,14 +86,26 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const membership = await this.prisma.houseMembership.findFirst({
+    const memberships = await this.prisma.houseMembership.findMany({
       where: {
         userId: user.id,
         isActive: true,
       },
-      orderBy: {
-        joinedAt: 'asc',
+      select: {
+        houseId: true,
+        role: true,
       },
+    });
+
+    // Convert to houseRoles map: { [houseId: string]: HouseRole }
+    const houseRoles: Record<string, HouseRole> = {};
+    let primaryHouseId: string | null = null;
+
+    memberships.forEach(m => {
+      houseRoles[m.houseId] = m.role;
+      if (!primaryHouseId) {
+        primaryHouseId = m.houseId;
+      }
     });
 
     return {
@@ -99,8 +113,9 @@ export class AuthService {
         id: user.id,
         email: user.email,
         fullName: user.fullName,
-        role: membership?.role ?? HouseRole.TENANT,
-        houseId: membership?.houseId ?? null,
+        role: memberships[0]?.role ?? HouseRole.TENANT,
+        houseId: primaryHouseId,
+        houseRoles,
       },
     };
   }
@@ -110,11 +125,12 @@ export class AuthService {
     email: string,
     fullName: string,
     role: HouseRole,
-    houseId?: string,
+    houseId: string | null,
+    houseRoles: Record<string, HouseRole>,
   ) {
     return {
-      accessToken: this.jwtService.sign({ sub: userId, email, role }),
-      user: { id: userId, email, fullName, role, houseId: houseId ?? null },
+      accessToken: this.jwtService.sign({ sub: userId, email, role, houseRoles }),
+      user: { id: userId, email, fullName, role, houseId, houseRoles },
     };
   }
 }

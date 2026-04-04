@@ -102,6 +102,28 @@ export interface MonthlyIndexResponse {
   };
 }
 
+export interface EvnCredentials {
+  username: string;
+  password: string;
+}
+
+export interface EvnCredentialsResponse {
+  hasCredentials: boolean;
+  maskedUsername?: string;
+  customerId?: string;
+  meterNumber?: string;
+  updatedAt?: string;
+  credentialId?: string;
+}
+
+export interface EvnMemberAccess {
+  userId: string;
+  fullName: string;
+  email: string;
+  role: 'OWNER' | 'MANAGER' | 'TENANT';
+  hasAccess: boolean;
+}
+
 /**
  * EVN API client for electricity meter integration
  */
@@ -117,7 +139,7 @@ export const evnApi = {
    * Test connection to EVN API
    */
   testConnection: async (
-    credentials?: EvnLoginRequest,
+    credentials?: { username?: string; password?: string },
   ): Promise<EvnTestConnectionResponse> => {
     return apiClient.post<EvnTestConnectionResponse>(
       '/evn/test-connection',
@@ -152,5 +174,67 @@ export const evnApi = {
     request: MonthlyIndexRequest,
   ): Promise<MonthlyIndexResponse> => {
     return apiClient.post<MonthlyIndexResponse>('/evn/monthly-index', request);
+  },
+
+  // ============= Credentials Management =============
+
+  /**
+   * Save EVN credentials for the house
+   */
+  saveCredentials: async (
+    credentials: EvnCredentials,
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiClient.post('/evn/credentials', credentials);
+  },
+
+  /**
+   * Get EVN credentials status for the house
+   */
+  getCredentials: async (): Promise<EvnCredentialsResponse> => {
+    return apiClient.get<EvnCredentialsResponse>('/evn/credentials');
+  },
+
+  /**
+   * Delete EVN credentials for the house
+   */
+  deleteCredentials: async (): Promise<{ success: boolean; message: string }> => {
+    return apiClient.delete('/evn/credentials');
+  },
+
+  /**
+   * Get all house members with EVN access status (ADMIN ONLY)
+   */
+  getHouseMembers: async (): Promise<EvnMemberAccess[]> => {
+    return apiClient.get<EvnMemberAccess[]>('/evn/credentials/members');
+  },
+
+  /**
+   * Grant EVN access to a specific member (ADMIN ONLY)
+   */
+  grantAccess: async (credentialId: string, userId: string): Promise<{ success: boolean; message: string }> => {
+    return apiClient.post(`/evn/credentials/${credentialId}/grant`, { userId });
+  },
+
+  /**
+   * Revoke EVN access from a member (ADMIN ONLY)
+   */
+  revokeAccess: async (credentialId: string, userId: string): Promise<{ success: boolean; message: string }> => {
+    return apiClient.delete(`/evn/credentials/${credentialId}/revoke/${userId}`);
+  },
+
+  /**
+   * Toggle EVN access for all members at once (ADMIN ONLY)
+   */
+  toggleAccessForAll: async (
+    grantAccess: boolean,
+  ): Promise<{ success: boolean; message: string }> => {
+    return apiClient.post('/evn/credentials/toggle-all', { grantAccess });
+  },
+
+  /**
+   * Check if current user has EVN access
+   */
+  checkAccess: async (): Promise<{ hasAccess: boolean }> => {
+    return apiClient.get('/evn/credentials/check-access');
   },
 };

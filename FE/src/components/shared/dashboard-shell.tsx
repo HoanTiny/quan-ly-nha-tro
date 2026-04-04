@@ -29,7 +29,8 @@ const adminNav = [
   { href: '/admin/bills', label: 'Chi phí', icon: FileText },
   { href: '/admin/expenses', label: 'Tổng kết', icon: PieChart },
   { href: '/admin/payments', label: 'Thanh toán', icon: Wallet },
-  { href: '/admin/electricity', label: 'Tiền điện', icon: Zap },
+  { href: '/admin/electricity', label: 'Quản lý điện', icon: Zap },
+  { href: '/admin/evn', label: 'Chỉ số điện', icon: Zap },
   { href: '/admin/notifications', label: 'Thông báo', icon: Bell },
   { href: '/admin/settings', label: 'Cài đặt', icon: Settings },
 ] satisfies ReadonlyArray<{ href: Route; label: string; icon: LucideIcon }>;

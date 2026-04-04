@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { EvnService } from './evn.service';
 import { EvnController } from './evn.controller';
+import { PrismaModule } from '../../common/prisma/prisma.module';
+import { EncryptionService } from '../../common/services/encryption.service';
 
 @Module({
   imports: [
@@ -9,9 +11,10 @@ import { EvnController } from './evn.controller';
       timeout: 30000,
       maxRedirects: 5,
     }),
+    PrismaModule,
   ],
   controllers: [EvnController],
-  providers: [EvnService],
+  providers: [EvnService, EncryptionService],
   exports: [EvnService],
 })
 export class EvnModule {}

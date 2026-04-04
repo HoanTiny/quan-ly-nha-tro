@@ -57,6 +57,7 @@ export type AuthSession = {
   fullName: string;
   role: UserRole;
   houseId?: string | null;
+  houseRoles?: Record<string, "OWNER" | "MANAGER" | "TENANT">;
   accessToken: string;
 };
 
