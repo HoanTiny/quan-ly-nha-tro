@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: starter
     rootDir: BE
-    buildCommand: npm install && npm run build && npx prisma generate
+    buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && npm start
     healthCheckPath: /api-docs
     envVars:
