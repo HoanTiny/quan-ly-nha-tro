@@ -4,8 +4,9 @@ services:
     env: node
     region: oregon
     plan: starter
-    buildCommand: cd BE && npm install && npm run build && npx prisma generate
-    startCommand: cd BE && npx prisma migrate deploy && npm start
+    rootDir: BE
+    buildCommand: npm install && npm run build && npx prisma generate
+    startCommand: npx prisma migrate deploy && npm start
     healthCheckPath: /api-docs
     envVars:
       - key: NODE_ENV
