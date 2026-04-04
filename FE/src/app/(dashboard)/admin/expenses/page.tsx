@@ -81,21 +81,18 @@ export default function AdminExpensesPage() {
 
       <Card>
         <div className="flex items-center justify-between p-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handlePrevMonth}
-          >
+          <Button variant="outline" onClick={handlePrevMonth}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
 
           <div className="text-center">
-            <h3 className="text-lg font-semibold">{formatMonthLabel(selectedMonth)}</h3>
+            <h3 className="text-lg font-semibold">
+              {formatMonthLabel(selectedMonth)}
+            </h3>
           </div>
 
           <Button
             variant="outline"
-            size="icon"
             onClick={handleNextMonth}
             disabled={isCurrentMonth}
           >
