@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: tro-be
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: cd BE && npm install && npm run build && npx prisma generate
+    startCommand: cd BE && npx prisma migrate deploy && npm start
+    healthCheckPath: /api-docs
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tro-db
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: APP_PORT
+        value: 3001
+      - key: PORT
+        value: 3001
+      - key: APP_ORIGIN
+        sync: false
+      - key: UPLOAD_PROVIDER
+        value: s3
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        value: ap-southeast-1
+      - key: EVN_TOKEN_URL
+        value: https://apicskh.evnhanoi.vn/connect/token
+      - key: EVN_API_URL
+        value: https://apicskh.evnhanoi.vn/api
+      - key: EVN_CLIENT_ID
+        value: httplocalhost4500
+      - key: EVN_CLIENT_SECRET
+        sync: false
+
+databases:
+  - name: tro-db
+    databaseName: tro
+    user: tro_user
