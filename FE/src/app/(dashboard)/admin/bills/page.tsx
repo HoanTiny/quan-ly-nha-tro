@@ -242,6 +242,7 @@ export default function AdminBillsPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['expenses'] }),
         queryClient.invalidateQueries({ queryKey: ['settlements'] }),
+        queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'bills' }),
       ]);
       showToast('Đã tạo khoản chi và cập nhật bill cho thành viên.', 'success');
     },
@@ -302,7 +303,7 @@ export default function AdminBillsPage() {
       setEditExpenseDate('');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['expenses'] }),
-        queryClient.invalidateQueries({ queryKey: ['bills'] }),
+        queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'bills' }),
       ]);
       showToast('Đã cập nhật khoản chi thành công.', 'success');
     },
@@ -320,7 +321,7 @@ export default function AdminBillsPage() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['expenses'] }),
-        queryClient.invalidateQueries({ queryKey: ['bills'] }),
+        queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'bills' }),
       ]);
       showToast('Đã xóa khoản chi thành công.', 'success');
     },

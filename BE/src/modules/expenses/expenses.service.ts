@@ -226,6 +226,15 @@ export class ExpensesService {
       });
     });
 
+    // Regenerate settlement sau khi cập nhật expense
+    const [year, month] = monthKey.split('-').map(Number);
+    await this.settlementsService.generateMonthlySettlement(
+      existingExpense.houseId,
+      month,
+      year,
+      expenseDate,
+    );
+
     return updatedExpense;
   }
 
@@ -238,6 +247,10 @@ export class ExpensesService {
       throw new BadRequestException('Expense not found');
     }
 
+    const expenseDate = new Date(existingExpense.expenseDate);
+    const monthKey = this.getMonthKey(expenseDate);
+    const [year, month] = monthKey.split('-').map(Number);
+
     await this.prisma.$transaction(async (tx) => {
       await tx.expenseAllocation.deleteMany({
         where: { expenseId },
@@ -246,6 +259,14 @@ export class ExpensesService {
         where: { id: expenseId },
       });
     });
+
+    // Regenerate settlement sau khi xóa expense để cập nhật allocatedAmount và netAmount
+    await this.settlementsService.generateMonthlySettlement(
+      existingExpense.houseId,
+      month,
+      year,
+      expenseDate,
+    );
 
     return { success: true, message: 'Expense deleted successfully' };
   }
