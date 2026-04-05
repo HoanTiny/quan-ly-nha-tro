@@ -8,6 +8,7 @@ import {
   Bell,
   CreditCard,
   FileText,
+  Key,
   LayoutDashboard,
   LogOut,
   MenuSquare,
@@ -33,6 +34,7 @@ const adminNav = [
   { href: '/admin/evn', label: 'Chỉ số điện', icon: Zap },
   { href: '/admin/notifications', label: 'Thông báo', icon: Bell },
   { href: '/admin/settings', label: 'Cài đặt', icon: Settings },
+  { href: '/admin/change-password', label: 'Đổi mật khẩu', icon: Key },
 ] satisfies ReadonlyArray<{ href: Route; label: string; icon: LucideIcon }>;
 
 const memberNav = [
@@ -43,6 +45,7 @@ const memberNav = [
   { href: '/member/electricity', label: 'Tiền điện', icon: Zap },
   { href: '/member/notifications', label: 'Thông báo', icon: Bell },
   { href: '/member/profile', label: 'Cá nhân', icon: Users },
+  { href: '/member/change-password', label: 'Đổi mật khẩu', icon: Key },
 ] satisfies ReadonlyArray<{ href: Route; label: string; icon: LucideIcon }>;
 
 export function DashboardShell({

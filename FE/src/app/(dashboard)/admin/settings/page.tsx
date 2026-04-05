@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { uploadImage } from "@/features/uploads/api";
 import { useAuthSession } from "@/lib/auth/use-auth-session";
 import { queryKeys } from "@/lib/query/query-keys";
 import { useToast } from "@/lib/toast/toast-context";
+import { Lock } from "lucide-react";
 
 export default function AdminSettingsPage() {
   const session = useAuthSession();
@@ -108,7 +110,7 @@ export default function AdminSettingsPage() {
         description="Cấu hình tài khoản nhận tiền để thành viên quét QR hoặc chuyển khoản nhanh ngay trong bill."
       />
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
+      <div className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
         <Card>
           <CardHeader>
             <CardTitle>Tài khoản nhận tiền</CardTitle>
@@ -211,7 +213,26 @@ export default function AdminSettingsPage() {
             )}
           </CardContent>
         </Card>
-      </section>
+      </div>
+
+      {/* Quick Settings Links */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="cursor-pointer transition hover:shadow-md">
+          <CardContent className="pt-6">
+            <Link href="/admin/change-password" className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                <Lock className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Đổi mật khẩu</h3>
+                <p className="text-sm text-muted-foreground">
+                  Thay đổi mật khẩu đăng nhập
+                </p>
+              </div>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

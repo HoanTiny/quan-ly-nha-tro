@@ -307,3 +307,14 @@ model EvnCredentialAccess {
   @@index([credentialId])
   @@index([userId])
 }
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([expiresAt])
+}

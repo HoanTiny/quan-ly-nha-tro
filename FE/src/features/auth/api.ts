@@ -80,3 +80,15 @@ export async function getMe() {
     houseRoles: response.houseRoles
   } satisfies Omit<AuthSession, "accessToken">;
 }
+
+export async function forgotPassword(email: string) {
+  await apiClient.post("/auth/forgot-password", { email });
+}
+
+export async function resetPassword(token: string, newPassword: string) {
+  await apiClient.post("/auth/reset-password", { token, newPassword });
+}
+
+export async function changePassword(oldPassword: string, newPassword: string) {
+  await apiClient.post("/auth/change-password", { oldPassword, newPassword });
+}
