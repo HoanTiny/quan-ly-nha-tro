@@ -45,7 +45,6 @@ export function MemberBillsList() {
                 </p>
                 <p className="text-sm text-black/55">{bill.roomName}</p>
               </div>
-              <div>30 Ngay lam tik tok</div>
 
               <div className="flex items-center gap-3">
                 <div className="text-right">
