@@ -31,6 +31,12 @@ export class EvnCredentialsResponseDto {
   @ApiProperty()
   meterNumber?: string;
 
+  @ApiProperty({ description: 'EVN customer point data', required: false })
+  maDiemDo?: string;
+
+  @ApiProperty({ description: 'EVN management unit', required: false })
+  maDonVi?: string;
+
   @ApiProperty({ description: 'When credentials were last updated' })
   updatedAt?: string;
 

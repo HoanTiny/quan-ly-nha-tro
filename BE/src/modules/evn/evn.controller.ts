@@ -280,4 +280,73 @@ export class EvnController {
     const hasAccess = await this.evnService.userHasAccess(houseId, user.sub);
     return { hasAccess };
   }
+
+  @Get('last-3-months-total')
+  @ApiOperation({ summary: 'Get total electricity for last 3 months' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  async getLast3MonthsTotal(
+    @CurrentUser() user: AuthUser,
+  ) {
+    const houseId = user.houseRoles
+      ? Object.keys(user.houseRoles)[0]
+      : undefined;
+    if (!houseId) {
+      throw new HttpException('User is not a member of any house', HttpStatus.FORBIDDEN);
+    }
+
+    // Get credentials to get maDViQLy, maKhachHang, maDiemDo
+    const credentials = await this.evnService.getCredentials(houseId);
+    if (!credentials?.hasCredentials) {
+      throw new HttpException('EVN credentials not configured', HttpStatus.NOT_FOUND);
+    }
+
+    // Use credentials data or fallback to known values
+    const maDonVi = credentials.maDonVi || 'HN0100';
+    const customerId = credentials.customerId || 'PD30000222084';
+    const maDiemDo = credentials.maDiemDo || 'PD30000222084001';
+
+    const result = await this.evnService.getLast3MonthsTotal(
+      houseId,
+      maDonVi,
+      customerId,
+      maDiemDo,
+    );
+
+    // Add month labels
+    if (result) {
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+
+      const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+      const monthBeforeLast = lastMonth === 1 ? 12 : lastMonth - 1;
+      const monthBeforeLast2 = monthBeforeLast === 1 ? 12 : monthBeforeLast - 1;
+
+      return {
+        ...result,
+        thang1Label: `Tháng ${monthBeforeLast2}`,
+        thang2Label: `Tháng ${monthBeforeLast}`,
+        thang3Label: `Tháng ${lastMonth}`,
+      };
+    }
+
+    return result;
+  }
+
+  @Delete('credentials')
+  @ApiOperation({ summary: 'Delete EVN credentials for the house' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, HouseRoleGuard)
+  @HouseRoles(HouseRole.OWNER, HouseRole.MANAGER)
+  async deleteCredentials(@CurrentUser() user: AuthUser) {
+    const houseId = user.houseRoles
+      ? Object.keys(user.houseRoles)[0]
+      : undefined;
+    if (!houseId) {
+      throw new HttpException('User is not a member of any house', HttpStatus.FORBIDDEN);
+    }
+
+    await this.evnService.deleteCredentials(houseId, user.sub);
+    return { success: true, message: 'EVN credentials deleted successfully' };
+  }
 }

@@ -112,6 +112,8 @@ export interface EvnCredentialsResponse {
   maskedUsername?: string;
   customerId?: string;
   meterNumber?: string;
+  maDiemDo?: string;
+  maDonVi?: string;
   updatedAt?: string;
   credentialId?: string;
 }
@@ -122,6 +124,16 @@ export interface EvnMemberAccess {
   email: string;
   role: 'OWNER' | 'MANAGER' | 'TENANT';
   hasAccess: boolean;
+}
+
+export interface Last3MonthsTotalResponse {
+  thang1: number;
+  thang2: number;
+  thang3: number;
+  tongCong: number;
+  thang1Label?: string;
+  thang2Label?: string;
+  thang3Label?: string;
 }
 
 /**
@@ -236,5 +248,12 @@ export const evnApi = {
    */
   checkAccess: async (): Promise<{ hasAccess: boolean }> => {
     return apiClient.get('/evn/credentials/check-access');
+  },
+
+  /**
+   * Get total electricity for last 3 months
+   */
+  getLast3MonthsTotal: async (): Promise<Last3MonthsTotalResponse> => {
+    return apiClient.get<Last3MonthsTotalResponse>('/evn/last-3-months-total');
   },
 };

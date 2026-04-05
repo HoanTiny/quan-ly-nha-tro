@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   evnApi,
   EvnMeterReadingRequest,
@@ -13,7 +13,12 @@ import {
   TrendingDown,
   Calendar,
   BarChart3,
+  AlertCircle,
+  ArrowRight,
+  Layers,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 function parseDate(dateStr: string): Date {
   const [day, month, year] = dateStr.split('/');
@@ -34,7 +39,6 @@ function calculateDailyUsage(
 ): { date: string; usage: number }[] {
   const usage: { date: string; usage: number }[] = [];
   for (let i = 1; i < readings.length; i++) {
-    // Điện tiêu thụ từ readings[i-1] đến readings[i] là của ngày readings[i-1]
     usage.push({
       date: readings[i - 1].date,
       usage: readings[i].value - readings[i - 1].value,
@@ -49,135 +53,134 @@ function getDayOfWeek(dateStr: string): string {
   return days[date.getDay()];
 }
 
-function getMonthYear(dateStr: string): string {
-  const date = parseDate(dateStr);
-  return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getFullYear()).slice(-2)}`;
-}
+function getLast7DaysDateRange(): { ngayDau: string; ngayCuoi: string } {
+  const today = new Date();
+  // Hôm qua
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
 
-function calculateMonthlyUsage(
-  dailyUsage: { date: string; usage: number }[],
-): Record<string, number> {
-  const monthly: Record<string, number> = {};
-  dailyUsage.forEach((item) => {
-    const monthKey = getMonthYear(item.date);
-    monthly[monthKey] = (monthly[monthKey] || 0) + item.usage;
-  });
-  return monthly;
-}
+  // 7 ngày trước hôm qua
+  const startDate = new Date(yesterday);
+  startDate.setDate(yesterday.getDate() - 6);
 
-function getCurrentMonth(): string {
-  const now = new Date();
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  return `${String(lastMonth.getMonth() + 1).padStart(2, '0')}/${String(lastMonth.getFullYear()).slice(-2)}`;
-}
+  const formatDate = (date: Date): string => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
 
-function getPreviousMonth(): string {
-  const now = new Date();
-  const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-  return `${String(twoMonthsAgo.getMonth() + 1).padStart(2, '0')}/${String(twoMonthsAgo.getFullYear()).slice(-2)}`;
-}
-
-function getMonthName(monthStr: string): string {
-  const [month] = monthStr.split('/');
-  const monthNames = [
-    'Tháng 1',
-    'Tháng 2',
-    'Tháng 3',
-    'Tháng 4',
-    'Tháng 5',
-    'Tháng 6',
-    'Tháng 7',
-    'Tháng 8',
-    'Tháng 9',
-    'Tháng 10',
-    'Tháng 11',
-    'Tháng 12',
-  ];
-  return monthNames[parseInt(month) - 1];
+  return {
+    ngayDau: formatDate(startDate),
+    ngayCuoi: formatDate(yesterday),
+  };
 }
 
 export default function ElectricityPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<EvnMeterReadingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [monthlyLoading, setMonthlyLoading] = useState(false);
-  const [monthlyData, setMonthlyData] = useState<{
-    currentMonth: number;
-    previousMonth: number;
-    twoMonthsAgo: number;
+
+  // Last 3 months total state
+  const [last3MonthsTotal, setLast3MonthsTotal] = useState<{
+    thang1: number;
+    thang2: number;
+    thang3: number;
+    tongCong: number;
+    thang1Label?: string;
+    thang2Label?: string;
+    thang3Label?: string;
   } | null>(null);
 
-  // padding top cho mobile để không bị header che (mobile bottom nav của dashboard-shell cao ~68px + padding)
-  const mobilePaddingTop = 'pt-[60px]';
+  // Credentials check state
+  const [credentials, setCredentials] = useState<{
+    hasCredentials: boolean;
+    customerId?: string;
+    maDiemDo?: string;
+    maDonVi?: string;
+  } | null>(null);
+  const [credentialsChecked, setCredentialsChecked] = useState(false);
 
-  const currentMonthNum = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const evnCurrentMonth = currentMonthNum;
-  const evnPreviousMonth = currentMonthNum - 1;
-  const evnTwoMonthsAgo = currentMonthNum - 2;
-
-  const [formData, setFormData] = useState<EvnMeterReadingRequest>({
+  const [formData, setFormData] = useState<EvnMeterReadingRequest>(() => ({
     customerId: 'PD30000222084',
     maDiemDo: 'PD30000222084001',
     maDonVi: 'HN0100',
-    ngayDau: '20/03/2026',
-    ngayCuoi: '01/04/2026',
-  });
+    ...getLast7DaysDateRange(),
+  }));
 
-  const handleFetchReadings = async () => {
+  // Check credentials on mount and auto-fill + auto-fetch
+  useEffect(() => {
+    const checkCredentials = async () => {
+      try {
+        const data = await evnApi.getCredentials();
+        setCredentials({
+          hasCredentials: data.hasCredentials,
+          customerId: data.customerId,
+          maDiemDo: data.maDiemDo,
+          maDonVi: data.maDonVi,
+        });
+
+        // Auto-fill form with credentials data
+        if (data.hasCredentials) {
+          setFormData((prev) => ({
+            ...prev,
+            customerId: data.customerId || prev.customerId,
+            maDiemDo: data.maDiemDo || prev.maDiemDo,
+            maDonVi: data.maDonVi || prev.maDonVi,
+          }));
+
+          // Auto-fetch readings with default 7 days
+          const dateRange = getLast7DaysDateRange();
+          await handleFetchReadings(
+            data.customerId || 'PD30000222084',
+            data.maDiemDo || 'PD30000222084001',
+            data.maDonVi || 'HN0100',
+            dateRange.ngayDau,
+            dateRange.ngayCuoi,
+          );
+
+          // Fetch last 3 months total
+          try {
+            const totalData = await evnApi.getLast3MonthsTotal();
+            console.log('Last 3 months total:', totalData);
+            setLast3MonthsTotal(totalData);
+          } catch (err) {
+            console.error('Failed to fetch last 3 months total:', err);
+          }
+        }
+      } catch (err: any) {
+        // If check fails, still allow user to try fetching
+        console.error('Failed to check credentials:', err);
+      } finally {
+        setCredentialsChecked(true);
+      }
+    };
+    checkCredentials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleFetchReadings = async (
+    customerId?: string,
+    maDiemDo?: string,
+    maDonVi?: string,
+    ngayDau?: string,
+    ngayCuoi?: string,
+  ) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await evnApi.getMeterReadings(formData);
+      const data = await evnApi.getMeterReadings({
+        customerId: customerId || formData.customerId,
+        maDiemDo: maDiemDo || formData.maDiemDo,
+        maDonVi: maDonVi || formData.maDonVi,
+        ngayDau: ngayDau || formData.ngayDau,
+        ngayCuoi: ngayCuoi || formData.ngayCuoi,
+      });
       setResult(data);
-
-      setMonthlyLoading(true);
-
-      const currentMonthData = await evnApi.getMonthlyIndex({
-        maDViQLy: formData.maDonVi,
-        maKhachHang: formData.customerId,
-        maDiemDo: formData.maDiemDo,
-        nam: currentYear,
-        thang: evnCurrentMonth,
-      });
-
-      let previousMonthUsage = 0;
-      if (evnPreviousMonth >= 0) {
-        const previousMonthData = await evnApi.getMonthlyIndex({
-          maDViQLy: formData.maDonVi,
-          maKhachHang: formData.customerId,
-          maDiemDo: formData.maDiemDo,
-          nam: currentYear,
-          thang: evnPreviousMonth,
-        });
-        previousMonthUsage =
-          previousMonthData.data?.dmChiSoDiemDoList?.[0]?.sanLuong || 0;
-      }
-
-      let twoMonthsAgoUsage = 0;
-      if (evnTwoMonthsAgo >= 0) {
-        const twoMonthsAgoData = await evnApi.getMonthlyIndex({
-          maDViQLy: formData.maDonVi,
-          maKhachHang: formData.customerId,
-          maDiemDo: formData.maDiemDo,
-          nam: currentYear,
-          thang: evnTwoMonthsAgo,
-        });
-        twoMonthsAgoUsage =
-          twoMonthsAgoData.data?.dmChiSoDiemDoList?.[0]?.sanLuong || 0;
-      }
-
-      setMonthlyData({
-        currentMonth:
-          currentMonthData.data?.dmChiSoDiemDoList?.[0]?.sanLuong || 0,
-        previousMonth: previousMonthUsage,
-        twoMonthsAgo: twoMonthsAgoUsage,
-      });
     } catch (err: any) {
       setError(err.message || 'Failed to fetch meter readings');
     } finally {
       setLoading(false);
-      setMonthlyLoading(false);
     }
   };
 
@@ -197,9 +200,76 @@ export default function ElectricityPage() {
 
   const chartMaxValue = Math.max(...dailyUsage.map((d) => d.usage), 1);
 
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
+  const mobilePaddingTop = 'pt-[60px]';
+
+  // Show loading while checking credentials
+  if (!credentialsChecked) {
+    return (
+      <div
+        className={`min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 ${mobilePaddingTop} sm:pt-8 py-8`}
+      >
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show no credentials message
+  if (!credentials?.hasCredentials) {
+    return (
+      <div
+        className={`min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 ${mobilePaddingTop} sm:pt-8 py-8`}
+      >
+        <div className="max-w-2xl mx-auto px-3 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2">
+              <div className="p-2 sm:p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl shadow-lg">
+                <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+                  Tiền Điện
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  Theo dõi chỉ số điện từ EVN
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* No Credentials Alert */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 sm:p-6 mb-6">
+            <div className="flex items-start gap-3">
+              <div className="p-2 sm:p-3 bg-yellow-100 rounded-full flex-shrink-0">
+                <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-yellow-800 font-semibold text-sm sm:text-base mb-2">
+                  Chưa cấu hình EVN
+                </h3>
+                <p className="text-yellow-600 text-xs sm:text-sm mb-4">
+                  Để xem chỉ số điện, vui lòng thiết lập thông tin tài khoản EVN
+                  trong trang quản lý.
+                </p>
+                <Link href="/admin/electricity" className="inline-block">
+                  <Button className="bg-yellow-600 hover:bg-yellow-700 text-white">
+                    <span className="flex items-center gap-2">
+                      Đi đến cài đặt
+                      <ArrowRight className="w-4 h-4" />
+                    </span>
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -227,93 +297,52 @@ export default function ElectricityPage() {
         <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-gray-100">
           <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
             <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
-            Thông tin tra cứu
+            Chọn khoảng thời gian
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
-                Mã khách hàng
+                Từ ngày
               </label>
               <input
-                type="text"
-                value={formData.customerId}
-                onChange={(e) =>
-                  setFormData({ ...formData, customerId: e.target.value })
-                }
+                type="date"
+                value={formData.ngayDau.split('/').reverse().join('-')}
+                onChange={(e) => {
+                  const date = e.target.value;
+                  if (date) {
+                    const [year, month, day] = date.split('-');
+                    setFormData({
+                      ...formData,
+                      ngayDau: `${day}/${month}/${year}`,
+                    });
+                  }
+                }}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
-                Mã điểm đo
+                Đến ngày
               </label>
               <input
-                type="text"
-                value={formData.maDiemDo}
-                onChange={(e) =>
-                  setFormData({ ...formData, maDiemDo: e.target.value })
-                }
+                type="date"
+                value={formData.ngayCuoi.split('/').reverse().join('-')}
+                onChange={(e) => {
+                  const date = e.target.value;
+                  if (date) {
+                    const [year, month, day] = date.split('-');
+                    setFormData({
+                      ...formData,
+                      ngayCuoi: `${day}/${month}/${year}`,
+                    });
+                  }
+                }}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Đơn vị quản lý
-              </label>
-              <input
-                type="text"
-                value={formData.maDonVi}
-                onChange={(e) =>
-                  setFormData({ ...formData, maDonVi: e.target.value })
-                }
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Từ ngày
-                </label>
-                <input
-                  type="date"
-                  value={formData.ngayDau.split('/').reverse().join('-')}
-                  onChange={(e) => {
-                    const date = e.target.value;
-                    if (date) {
-                      const [year, month, day] = date.split('-');
-                      setFormData({
-                        ...formData,
-                        ngayDau: `${day}/${month}/${year}`,
-                      });
-                    }
-                  }}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Đến ngày
-                </label>
-                <input
-                  type="date"
-                  value={formData.ngayCuoi.split('/').reverse().join('-')}
-                  onChange={(e) => {
-                    const date = e.target.value;
-                    if (date) {
-                      const [year, month, day] = date.split('-');
-                      setFormData({
-                        ...formData,
-                        ngayCuoi: `${day}/${month}/${year}`,
-                      });
-                    }
-                  }}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-              </div>
             </div>
           </div>
           <button
-            onClick={handleFetchReadings}
+            onClick={() => handleFetchReadings()}
             disabled={loading}
             className="mt-3 sm:mt-4 w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium py-2.5 sm:py-3 rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-500/30 text-sm sm:text-base"
           >
@@ -460,100 +489,86 @@ export default function ElectricityPage() {
                 </p>
               </div>
 
-              {/* Month Comparison */}
-              <div
-                className={`bg-gradient-to-br rounded-2xl shadow-lg p-4 sm:p-5 border ${
-                  monthlyData &&
-                  monthlyData.currentMonth >= monthlyData.previousMonth
-                    ? 'from-purple-50 to-pink-50 border-purple-200'
-                    : 'from-green-50 to-teal-50 border-green-200'
-                }`}
-              >
+              {/* Last 3 Months Total */}
+              <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-5 border border-gray-100 hover:shadow-xl transition-shadow">
                 <div className="flex items-center justify-between mb-2 sm:mb-3">
                   <span className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wide">
-                    Tháng {evnCurrentMonth + 1}
+                    Điện tiêu thụ tháng vừa qua
                   </span>
-                  <div
-                    className={`p-1.5 sm:p-2 rounded-full ${
-                      (monthlyLoading ||
-                        (monthlyData &&
-                          monthlyData.currentMonth >=
-                            monthlyData.previousMonth)) &&
-                      !monthlyLoading
-                        ? 'bg-purple-100'
-                        : 'bg-green-100'
-                    }`}
-                  >
-                    {monthlyLoading ? (
-                      <svg
-                        className="animate-spin h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-600"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
-                    ) : monthlyData &&
-                      monthlyData.currentMonth >= monthlyData.previousMonth ? (
-                      <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />
-                    ) : (
-                      <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
-                    )}
+                  <div className="p-1.5 sm:p-2 bg-purple-100 rounded-full">
+                    <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />
                   </div>
                 </div>
-                <div className="flex flex-col">
-                  {monthlyLoading ? (
-                    <p className="text-lg sm:text-2xl font-bold text-purple-600 animate-pulse">
-                      Đang tải...
-                    </p>
-                  ) : monthlyData ? (
-                    <>
-                      <p
-                        className={`text-lg sm:text-2xl font-bold ${
-                          monthlyData.currentMonth >= monthlyData.previousMonth
-                            ? 'text-purple-600'
-                            : 'text-green-600'
-                        }`}
-                      >
-                        {monthlyData.currentMonth - monthlyData.previousMonth >=
-                        0
-                          ? '+'
-                          : ''}
-                        {(
-                          monthlyData.currentMonth - monthlyData.previousMonth
-                        ).toFixed(0)}{' '}
-                        kWh
-                      </p>
-                      <p
-                        className={`text-[10px] sm:text-xs mt-0.5 ${
-                          monthlyData.currentMonth >= monthlyData.previousMonth
-                            ? 'text-purple-500'
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  {last3MonthsTotal?.thang3.toLocaleString() ?? '-'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">kWh</p>
+
+                {/* Month comparison */}
+                {last3MonthsTotal && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">
+                          {last3MonthsTotal.thang1Label || '2 tháng trước'}:
+                        </span>
+                        <span className="font-semibold text-gray-700">
+                          {last3MonthsTotal.thang1.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">
+                          {last3MonthsTotal.thang2Label || 'Tháng trước'}:
+                        </span>
+                        <span className="font-semibold text-gray-700">
+                          {last3MonthsTotal.thang2.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">
+                          {last3MonthsTotal.thang3Label || 'Tháng này'}:
+                        </span>
+                        <span className="font-semibold text-gray-700">
+                          {last3MonthsTotal.thang3.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 mt-2">
+                      {last3MonthsTotal.thang3 >= last3MonthsTotal.thang2 ? (
+                        <TrendingUp className="w-3 h-3 text-red-500" />
+                      ) : (
+                        <TrendingDown className="w-3 h-3 text-green-500" />
+                      )}
+                      <span
+                        className={`text-xs font-medium ${
+                          last3MonthsTotal.thang3 >= last3MonthsTotal.thang2
+                            ? 'text-red-500'
                             : 'text-green-500'
                         }`}
                       >
-                        {monthlyData.previousMonth > 0
-                          ? `${(((monthlyData.currentMonth - monthlyData.previousMonth) / monthlyData.previousMonth) * 100).toFixed(1)}%`
-                          : 'N/A'}{' '}
-                        vs T{evnPreviousMonth + 1}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-lg sm:text-2xl font-bold text-gray-400">
-                      -
-                    </p>
-                  )}
-                </div>
+                        {last3MonthsTotal.thang3 >= last3MonthsTotal.thang2
+                          ? '+'
+                          : ''}
+                        {(
+                          ((last3MonthsTotal.thang3 - last3MonthsTotal.thang2) /
+                            (last3MonthsTotal.thang2 || 1)) *
+                          100
+                        ).toFixed(1)}
+                        %
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        (
+                        {last3MonthsTotal.thang3 >= last3MonthsTotal.thang2
+                          ? '+'
+                          : ''}
+                        {(
+                          last3MonthsTotal.thang3 - last3MonthsTotal.thang2
+                        ).toLocaleString()}{' '}
+                        kWh)
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -564,8 +579,8 @@ export default function ElectricityPage() {
                   Biểu đồ tiêu thụ
                 </h2>
               </div>
-              {/* Legend - Hidden on mobile by default */}
-              <div className="hidden sm:flex gap-4 mb-4 overflow-hidden">
+              {/* Legend */}
+              <div className="flex gap-4 mb-4 overflow-hidden">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-orange-500 flex-shrink-0"></div>
                   <span className="text-xs text-gray-500">Hôm qua</span>
@@ -624,214 +639,6 @@ export default function ElectricityPage() {
               </div>
             </div>
 
-            {/* Monthly Consumption Summary */}
-            <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-100">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4 sm:mb-6">
-                Tổng sản lượng tháng
-              </h2>
-
-              {/* Month Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
-                {/* Current Month */}
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 p-4 sm:p-5 text-white">
-                  <div className="absolute -right-3 -top-3 h-16 w-16 sm:h-24 sm:w-24 opacity-20">
-                    <Zap className="h-full w-full" />
-                  </div>
-                  <p className="text-xs sm:text-sm font-medium opacity-80 mb-1">
-                    Tháng {evnCurrentMonth + 1}
-                  </p>
-                  <p className="text-2xl sm:text-3xl font-bold">
-                    {monthlyLoading ? (
-                      <span className="animate-pulse">...</span>
-                    ) : (
-                      monthlyData?.currentMonth.toLocaleString() || 0
-                    )}
-                  </p>
-                  <p className="text-xs opacity-75 mt-1">kWh</p>
-                </div>
-
-                {/* Previous Month */}
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-4 sm:p-5 text-white">
-                  <div className="absolute -right-3 -top-3 h-16 w-16 sm:h-24 sm:w-24 opacity-20">
-                    <Calendar className="h-full w-full" />
-                  </div>
-                  <p className="text-xs sm:text-sm font-medium opacity-80 mb-1">
-                    Tháng {evnPreviousMonth + 1}
-                  </p>
-                  <p className="text-2xl sm:text-3xl font-bold">
-                    {monthlyLoading ? (
-                      <span className="animate-pulse">...</span>
-                    ) : (
-                      monthlyData?.previousMonth.toLocaleString() || 0
-                    )}
-                  </p>
-                  <p className="text-xs opacity-75 mt-1">kWh</p>
-                </div>
-
-                {/* Two Months Ago */}
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 sm:p-5 text-white">
-                  <div className="absolute -right-3 -top-3 h-16 w-16 sm:h-24 sm:w-24 opacity-20">
-                    <BarChart3 className="h-full w-full" />
-                  </div>
-                  <p className="text-xs sm:text-sm font-medium opacity-80 mb-1">
-                    Tháng {evnTwoMonthsAgo + 1}
-                  </p>
-                  <p className="text-2xl sm:text-3xl font-bold">
-                    {monthlyLoading ? (
-                      <span className="animate-pulse">...</span>
-                    ) : (
-                      monthlyData?.twoMonthsAgo.toLocaleString() || 0
-                    )}
-                  </p>
-                  <p className="text-xs opacity-75 mt-1">kWh</p>
-                </div>
-              </div>
-
-              {/* Comparison Bars */}
-              <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
-                <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3 sm:mb-4">
-                  So sánh tháng
-                </h3>
-
-                {monthlyLoading ? (
-                  <div className="space-y-2 sm:space-y-3">
-                    <div className="h-10 sm:h-12 bg-gray-200 rounded-lg animate-pulse"></div>
-                    <div className="h-10 sm:h-12 bg-gray-200 rounded-lg animate-pulse"></div>
-                  </div>
-                ) : monthlyData ? (
-                  <div className="space-y-3 sm:space-y-4">
-                    {/* Month-over-month comparison */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 sm:gap-2">
-                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-purple-500"></div>
-                          <span className="text-[10px] sm:text-sm text-gray-600">
-                            T{evnCurrentMonth + 1}
-                          </span>
-                        </div>
-                        <svg
-                          className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M17 8l4 4m0 0l-4 4m4-4H3"
-                          />
-                        </svg>
-                        <div className="flex items-center gap-1 sm:gap-2">
-                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-blue-500"></div>
-                          <span className="text-[10px] sm:text-sm text-gray-600">
-                            T{evnPreviousMonth + 1}
-                          </span>
-                        </div>
-                      </div>
-                      <div
-                        className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full flex-shrink-0 ${
-                          monthlyData.currentMonth >= monthlyData.previousMonth
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-green-100 text-green-700'
-                        }`}
-                      >
-                        {monthlyData.currentMonth >=
-                        monthlyData.previousMonth ? (
-                          <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
-                        ) : (
-                          <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />
-                        )}
-                        <span className="text-[10px] sm:text-sm font-semibold whitespace-nowrap">
-                          {Math.abs(
-                            monthlyData.currentMonth -
-                              monthlyData.previousMonth,
-                          ).toLocaleString()}{' '}
-                          kWh
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Month over 2 months ago comparison */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 sm:gap-2">
-                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-purple-500"></div>
-                          <span className="text-[10px] sm:text-sm text-gray-600">
-                            T{evnCurrentMonth + 1}
-                          </span>
-                        </div>
-                        <svg
-                          className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M17 8l4 4m0 0l-4 4m4-4H3"
-                          />
-                        </svg>
-                        <div className="flex items-center gap-1 sm:gap-2">
-                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-emerald-500"></div>
-                          <span className="text-[10px] sm:text-sm text-gray-600">
-                            T{evnTwoMonthsAgo + 1}
-                          </span>
-                        </div>
-                      </div>
-                      <div
-                        className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full flex-shrink-0 ${
-                          monthlyData.currentMonth >= monthlyData.twoMonthsAgo
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-green-100 text-green-700'
-                        }`}
-                      >
-                        {monthlyData.currentMonth >=
-                        monthlyData.twoMonthsAgo ? (
-                          <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
-                        ) : (
-                          <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />
-                        )}
-                        <span className="text-[10px] sm:text-sm font-semibold whitespace-nowrap">
-                          {Math.abs(
-                            monthlyData.currentMonth - monthlyData.twoMonthsAgo,
-                          ).toLocaleString()}{' '}
-                          kWh
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Percentage change */}
-                    <div className="pt-2 sm:pt-3 border-t border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] sm:text-sm text-gray-500">
-                          Biến động so với tháng trước
-                        </span>
-                        <span
-                          className={`text-xs sm:text-sm font-semibold ${
-                            monthlyData.currentMonth >=
-                            monthlyData.previousMonth
-                              ? 'text-red-600'
-                              : 'text-green-600'
-                          }`}
-                        >
-                          {monthlyData.previousMonth > 0
-                            ? `${(((monthlyData.currentMonth - monthlyData.previousMonth) / monthlyData.previousMonth) * 100).toFixed(1)}%`
-                            : 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-400 text-xs sm:text-sm text-center py-3 sm:py-4">
-                    Chưa có dữ liệu
-                  </p>
-                )}
-              </div>
-            </div>
-
             {/* Detailed Table */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
               <div className="px-3 py-3 sm:px-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
@@ -859,15 +666,13 @@ export default function ElectricityPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {result.readings.map((reading, idx) => {
-                      // Usage là điện tiêu thụ của ngày TRƯỚC đó (từ idx đến idx+1)
                       const nextReading = result.readings[idx + 1];
                       const usage = nextReading
                         ? nextReading.value - reading.value
                         : 0;
                       const isLastDay = idx === result.readings.length - 1;
-                      const isToday = idx === result.readings.length - 2; // Ngày có reading cuối cùng thực tế là hôm qua
+                      const isToday = idx === result.readings.length - 2;
 
-                      // Không hiển thị dòng cuối cùng vì không có usage
                       if (isLastDay) return null;
 
                       return (

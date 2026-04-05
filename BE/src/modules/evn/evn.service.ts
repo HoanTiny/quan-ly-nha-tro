@@ -86,6 +86,27 @@ export class EvnService {
     const encryptedUsername = this.encryptionService.encrypt(dto.username);
     const encryptedPassword = this.encryptionService.encrypt(dto.password);
 
+    // Try to get customer info from EVN API
+    let customerInfo: {
+      maKhachHang: string;
+      tenKhachHang: string;
+      maDiemDo: string;
+      maDonVi: string;
+      soCto: string;
+      diaChi: string;
+    } | null = null;
+
+    try {
+      // Get token first
+      const tokenData = await this.login(dto);
+      // Fetch customer info
+      customerInfo = await this.getCustomerInfoByUsername(dto.username, tokenData.access_token);
+      this.logger.log(`Fetched customer info for ${dto.username}: ${JSON.stringify(customerInfo)}`);
+    } catch (error: any) {
+      this.logger.warn(`Could not fetch customer info: ${error.message}`);
+      // Continue saving credentials even if we can't fetch customer info
+    }
+
     // Save new credentials
     await this.prisma.evnCredential.create({
       data: {
@@ -93,6 +114,10 @@ export class EvnService {
         userId,
         username: JSON.stringify(encryptedUsername),
         password: JSON.stringify(encryptedPassword),
+        customerId: customerInfo?.maKhachHang,
+        meterNumber: customerInfo?.soCto,
+        maDiemDo: customerInfo?.maDiemDo,
+        maDonVi: customerInfo?.maDonVi,
         isActive: true,
       },
     });
@@ -108,6 +133,8 @@ export class EvnService {
     maskedUsername?: string;
     customerId?: string;
     meterNumber?: string;
+    maDiemDo?: string;
+    maDonVi?: string;
     updatedAt?: string;
     credentialId?: string;
   } | null> {
@@ -118,6 +145,8 @@ export class EvnService {
         username: true,
         customerId: true,
         meterNumber: true,
+        maDiemDo: true,
+        maDonVi: true,
         updatedAt: true,
       },
     });
@@ -136,6 +165,8 @@ export class EvnService {
       maskedUsername: this.maskString(decryptedUsername),
       customerId: credential.customerId ?? undefined,
       meterNumber: credential.meterNumber ?? undefined,
+      maDiemDo: credential.maDiemDo ?? undefined,
+      maDonVi: credential.maDonVi ?? undefined,
       updatedAt: credential.updatedAt.toISOString(),
     };
   }
@@ -331,6 +362,57 @@ export class EvnService {
       '*'.repeat(str.length - visible * 2) +
       str.substring(str.length - visible)
     );
+  }
+
+  /**
+   * Get customer info from EVN API by username
+   */
+  async getCustomerInfoByUsername(
+    username: string,
+    token: string,
+  ): Promise<{
+    maKhachHang: string;
+    tenKhachHang: string;
+    maDiemDo: string;
+    maDonVi: string;
+    soCto: string;
+    diaChi: string;
+  } | null> {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(
+          `${this.baseUrl}/GiaoDichDienTu/GetDanhmucDiemDoByUserName`,
+          {
+            params: { userName: username },
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        ),
+      );
+
+      this.logger.log(
+        `EVN customer info response: ${JSON.stringify(response.data)}`,
+      );
+
+      const data = response.data;
+      if (data && data.diemen && Array.isArray(data.diemen) && data.diemen.length > 0) {
+        const firstPoint = data.diemen[0];
+        return {
+          maKhachHang: data.maKhachHang || username,
+          tenKhachHang: data.tenKhachHang || '',
+          maDiemDo: firstPoint.maDiemDo || '',
+          maDonVi: firstPoint.maDonVi || '',
+          soCto: firstPoint.soCto || '',
+          diaChi: firstPoint.diaChi || '',
+        };
+      }
+
+      return null;
+    } catch (error: any) {
+      this.logger.error('Failed to get customer info', error);
+      return null;
+    }
   }
 
   /**
@@ -644,5 +726,82 @@ export class EvnService {
       `Using environment EVN credentials for house ${houseId} (monthly index)`,
     );
     return this.getMonthlyIndexWithAuth(data);
+  }
+
+  /**
+   * Get total electricity for last 3 months
+   */
+  async getLast3MonthsTotal(
+    houseId: string,
+    maDViQLy: string,
+    maKhachHang: string,
+    maDiemDo: string,
+  ): Promise<{ thang1: number; thang2: number; thang3: number; tongCong: number } | null> {
+    try {
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+
+      // Lấy 3 tháng gần nhất (không tính tháng hiện tại)
+      // Ví dụ: tháng 4 thì lấy tháng 1, 2, 3
+      const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+      const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+
+      const monthBeforeLast = lastMonth === 1 ? 12 : lastMonth - 1;
+      const monthBeforeLastYear = lastMonth === 1 ? currentYear - 1 : currentYear;
+
+      const monthBeforeLast2 = monthBeforeLast === 1 ? 12 : monthBeforeLast - 1;
+      const monthBeforeLast2Year = monthBeforeLast === 1 ? currentYear - 1 : currentYear;
+
+      // Fetch data for 3 months
+      const [lastMonthData, monthBeforeLastData, monthBeforeLast2Data] = await Promise.all([
+        this.getMonthlyIndexForHouse(houseId, {
+          maDViQLy,
+          maKhachHang,
+          maDiemDo,
+          nam: lastMonthYear,
+          thang: lastMonth,
+        }),
+        this.getMonthlyIndexForHouse(houseId, {
+          maDViQLy,
+          maKhachHang,
+          maDiemDo,
+          nam: monthBeforeLastYear,
+          thang: monthBeforeLast,
+        }),
+        this.getMonthlyIndexForHouse(houseId, {
+          maDViQLy,
+          maKhachHang,
+          maDiemDo,
+          nam: monthBeforeLast2Year,
+          thang: monthBeforeLast2,
+        }),
+      ]);
+
+      // Calculate tongSo from sanLuong if tongSo is not available
+      const calculateTotalFromData = (data: MonthlyIndexResponseDto): number => {
+        if (data?.tongSo) return data.tongSo;
+        // Access data property as any to handle the actual API response structure
+        const readingsList = (data as any).data?.dmChiSoDiemDoList;
+        if (readingsList && Array.isArray(readingsList) && readingsList.length > 0) {
+          return readingsList.reduce((sum: number, item: any) => sum + (item.sanLuong || 0), 0);
+        }
+        return 0;
+      };
+
+      const thang1 = calculateTotalFromData(monthBeforeLast2Data);
+      const thang2 = calculateTotalFromData(monthBeforeLastData);
+      const thang3 = calculateTotalFromData(lastMonthData);
+
+      return {
+        thang1,
+        thang2,
+        thang3,
+        tongCong: thang1 + thang2 + thang3,
+      };
+    } catch (error: any) {
+      this.logger.error('Failed to get last 3 months total', error);
+      return null;
+    }
   }
 }

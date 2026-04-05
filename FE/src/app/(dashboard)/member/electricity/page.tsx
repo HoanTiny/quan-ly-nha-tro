@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { evnApi, EvnMeterReadingRequest, DailyReading } from '@/lib/api/evn';
-import { Zap, TrendingUp, TrendingDown, Key, EyeOff } from 'lucide-react';
+import {
+  Zap,
+  TrendingUp,
+  TrendingDown,
+  Key,
+  EyeOff,
+  Layers,
+} from 'lucide-react';
 
 function parseDate(dateStr: string): Date {
   const [day, month, year] = dateStr.split('/');
@@ -69,6 +76,17 @@ export default function MemberElectricityPage() {
   const [credentialsChecked, setCredentialsChecked] = useState(false);
   const [hasEvnAccess, setHasEvnAccess] = useState(false);
 
+  // Last 3 months total state
+  const [last3MonthsTotal, setLast3MonthsTotal] = useState<{
+    thang1: number;
+    thang2: number;
+    thang3: number;
+    tongCong: number;
+    thang1Label?: string;
+    thang2Label?: string;
+    thang3Label?: string;
+  } | null>(null);
+
   // Default values for the logged-in member
   const [formData, setFormData] = useState<EvnMeterReadingRequest>(() => ({
     customerId: 'PD30000222084',
@@ -102,6 +120,14 @@ export default function MemberElectricityPage() {
         setHasEvnAccess(accessResult.hasAccess);
         if (accessResult.hasAccess) {
           handleFetchReadings();
+
+          // Fetch last 3 months total
+          try {
+            const totalData = await evnApi.getLast3MonthsTotal();
+            setLast3MonthsTotal(totalData);
+          } catch (err) {
+            console.error('Failed to fetch last 3 months total:', err);
+          }
         }
       } catch (err: any) {
         // If checkAccess fails, still try to fetch readings
@@ -162,7 +188,7 @@ export default function MemberElectricityPage() {
         {/* Quick Stats - Only show when has access */}
         {hasEvnAccess && (
           <>
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
               <div className="bg-white rounded-2xl shadow p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="p-1.5 bg-blue-100 rounded-full">
@@ -217,6 +243,88 @@ export default function MemberElectricityPage() {
                   {usageChangePercent >= 0 ? '+' : ''}
                   {usageChangePercent.toFixed(1)}%
                 </p>
+              </div>
+
+              {/* Last 3 Months Total */}
+              <div className="bg-white rounded-2xl shadow p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 bg-purple-100 rounded-full">
+                    <Layers className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-500">
+                    Điện tiêu thụ tháng vừa qua
+                  </span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {last3MonthsTotal?.thang3.toLocaleString() ?? '-'}
+                </p>
+                <p className="text-xs text-gray-400">kWh</p>
+
+                {/* Month comparison */}
+                {last3MonthsTotal && (
+                  <div className="mt-2 pt-2 border-t border-gray-100">
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">
+                          {last3MonthsTotal.thang1Label}:
+                        </span>
+                        <span className="font-semibold text-gray-700">
+                          {last3MonthsTotal.thang1.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">
+                          {last3MonthsTotal.thang2Label}:
+                        </span>
+                        <span className="font-semibold text-gray-700">
+                          {last3MonthsTotal.thang2.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">
+                          {last3MonthsTotal.thang3Label}:
+                        </span>
+                        <span className="font-semibold text-gray-700">
+                          {last3MonthsTotal.thang3.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 mt-2">
+                      {last3MonthsTotal.thang3 >= last3MonthsTotal.thang2 ? (
+                        <TrendingUp className="w-3 h-3 text-red-500" />
+                      ) : (
+                        <TrendingDown className="w-3 h-3 text-green-500" />
+                      )}
+                      <span
+                        className={`text-xs font-medium ${
+                          last3MonthsTotal.thang3 >= last3MonthsTotal.thang2
+                            ? 'text-red-500'
+                            : 'text-green-500'
+                        }`}
+                      >
+                        {last3MonthsTotal.thang3 >= last3MonthsTotal.thang2
+                          ? '+'
+                          : ''}
+                        {(
+                          ((last3MonthsTotal.thang3 - last3MonthsTotal.thang2) /
+                            (last3MonthsTotal.thang2 || 1)) *
+                          100
+                        ).toFixed(1)}
+                        % so với tháng trước
+                        <span className="text-xs text-gray-400">
+                          (
+                          {last3MonthsTotal.thang3 >= last3MonthsTotal.thang2
+                            ? '+'
+                            : ''}
+                          {(
+                            last3MonthsTotal.thang3 - last3MonthsTotal.thang2
+                          ).toLocaleString()}{' '}
+                          kWh)
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

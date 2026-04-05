@@ -280,6 +280,8 @@ model EvnCredential {
   password         String              // EVN password (encrypted)
   customerId       String?             // EVN customer ID (optional cache)
   meterNumber      String?             // EVN meter number (optional cache)
+  maDiemDo         String?             // EVN meter point ID (optional cache)
+  maDonVi          String?             // EVN management unit (optional cache)
   isActive         Boolean             @default(true)
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
