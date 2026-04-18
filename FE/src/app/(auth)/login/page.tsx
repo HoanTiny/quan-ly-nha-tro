@@ -14,14 +14,14 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-import { login } from '@/features/auth/api';
-import { getDefaultRoute } from '@/lib/auth/default-route';
-import { getAuthSession, saveAuthSession } from '@/lib/auth/session';
-import { useToast } from '@/lib/toast/toast-context';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { login } from '@/features/auth/api';
+import { getDefaultRoute } from '@/lib/auth/default-route';
+import { AUTH_LOGOUT_EVENT, getAuthSession, saveAuthSession } from '@/lib/auth/session';
+import { useToast } from '@/lib/toast/toast-context';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,16 +41,14 @@ export default function LoginPage() {
     router.replace(getDefaultRoute(session));
   }, [router]);
 
-  // Lắng nghe sự kiện logout để reload trang login nếu cần
   useEffect(() => {
     const handleAuthLogout = () => {
-      // Clear session và reload để đảm bảo state được làm mới
       window.location.reload();
     };
 
-    window.addEventListener('tro-auth-logout', handleAuthLogout as EventListener);
+    window.addEventListener(AUTH_LOGOUT_EVENT, handleAuthLogout as EventListener);
     return () => {
-      window.removeEventListener('tro-auth-logout', handleAuthLogout as EventListener);
+      window.removeEventListener(AUTH_LOGOUT_EVENT, handleAuthLogout as EventListener);
     };
   }, []);
 
@@ -62,10 +60,10 @@ export default function LoginPage() {
     try {
       const session = await login({ email, password });
       saveAuthSession(session);
-      showToast('Đăng nhập thành công.', 'success');
+      showToast('Dang nhap thanh cong.', 'success');
       router.push(getDefaultRoute(session));
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : 'Đăng nhập thất bại.';
+      const message = submitError instanceof Error ? submitError.message : 'Dang nhap that bai.';
       setError(message);
       showToast(message, 'error');
     } finally {
@@ -81,16 +79,16 @@ export default function LoginPage() {
           <div className="relative space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.22em] text-white/80">
               <Sparkles className="h-3.5 w-3.5" />
-              Quản lý chi tiêu nhà trọ
+              Quan ly chi tieu nha tro
             </div>
 
             <div className="space-y-3">
               <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">
-                Đăng nhập để vào đúng khu vực của bạn trong hệ thống.
+                Dang nhap de vao dung khu vuc cua ban trong he thong.
               </h1>
               <p className="max-w-md text-sm leading-6 text-white/75 sm:text-base">
-                Chủ trọ có thể tạo nhà trọ để quản lý. Người thuê chỉ cần được chủ trọ cấp tài
-                khoản hoặc thêm vào nhà trọ là có thể đăng nhập và xem hóa đơn.
+                Chu tro co the tao nha tro de quan ly. Nguoi thue chi can duoc chu tro cap tai
+                khoan hoac them vao nha tro la co the dang nhap va xem hoa don.
               </p>
             </div>
 
@@ -99,10 +97,10 @@ export default function LoginPage() {
                 <div className="flex items-start gap-3">
                   <ShieldCheck className="mt-0.5 h-5 w-5 text-[#d7f0cd]" />
                   <div>
-                    <p className="font-medium">Phân quyền rõ ràng</p>
+                    <p className="font-medium">Phan quyen ro rang</p>
                     <p className="mt-1 text-sm text-white/70">
-                      Chủ trọ và người thuê đi vào hai dashboard riêng, đúng theo quyền hiện tại của
-                      tài khoản.
+                      Chu tro va nguoi thue di vao hai dashboard rieng, dung theo quyen hien tai
+                      cua tai khoan.
                     </p>
                   </div>
                 </div>
@@ -112,9 +110,10 @@ export default function LoginPage() {
                 <div className="flex items-start gap-3">
                   <Smartphone className="mt-0.5 h-5 w-5 text-[#f7e0ba]" />
                   <div>
-                    <p className="font-medium">Tối ưu mobile</p>
+                    <p className="font-medium">Toi uu mobile</p>
                     <p className="mt-1 text-sm text-white/70">
-                      Nút lớn, thao tác ngắn và phù hợp cho cả chủ trọ lẫn thành viên trên điện thoại.
+                      Nut lon, thao tac ngan va phu hop cho ca chu tro lan thanh vien tren dien
+                      thoai.
                     </p>
                   </div>
                 </div>
@@ -122,11 +121,11 @@ export default function LoginPage() {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/10 p-4">
-              <p className="text-sm font-medium text-white/85">Hai cách vào hệ thống</p>
+              <p className="text-sm font-medium text-white/85">Hai cach vao he thong</p>
               <p className="mt-2 text-sm leading-6 text-white/70">
-                Nếu bạn là chủ trọ, hãy đăng ký rồi tạo nhà trọ của mình. Nếu bạn là người thuê,
-                chỉ cần dùng tài khoản do chủ trọ tạo sẵn hoặc tài khoản đã được chủ trọ thêm vào
-                hệ thống.
+                Neu ban la chu tro, hay dang ky roi tao nha tro cua minh. Neu ban la nguoi thue,
+                chi can dung tai khoan do chu tro tao san hoac tai khoan da duoc chu tro them vao
+                he thong.
               </p>
             </div>
           </div>
@@ -136,14 +135,12 @@ export default function LoginPage() {
           <div className="w-full space-y-6">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-black/40">
-                Đăng nhập
+                Dang nhap
               </p>
-              <h2 className="text-3xl font-semibold tracking-tight text-ink">
-                Vào dashboard của bạn
-              </h2>
+              <h2 className="text-3xl font-semibold tracking-tight text-ink">Vao dashboard cua ban</h2>
               <p className="max-w-md text-sm leading-6 text-black/55">
-                Sử dụng email và mật khẩu để truy cập hệ thống. Tài khoản chưa được gán vào nhà trọ
-                sẽ được đưa sang màn hướng dẫn tiếp theo thay vì bị ép tạo nhà trọ.
+                Su dung email va mat khau de truy cap he thong. Tai khoan chua duoc gan vao nha
+                tro se duoc dua sang man huong dan tiep theo thay vi bi ep tao nha tro.
               </p>
             </div>
 
@@ -166,7 +163,7 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Mật khẩu</Label>
+                <Label htmlFor="password">Mat khau</Label>
                 <div className="relative">
                   <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-black/35" />
                   <Input
@@ -174,12 +171,12 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     className="h-12 w-full rounded-2xl border-black/10 pl-11 pr-12 text-base"
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Nhập mật khẩu"
+                    placeholder="Nhap mat khau"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                   />
                   <button
-                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    aria-label={showPassword ? 'An mat khau' : 'Hien mat khau'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-black/45 transition hover:bg-black/5 hover:text-black/70"
                     type="button"
                     onClick={() => setShowPassword((current) => !current)}
@@ -189,9 +186,9 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm">
+              <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                 <Link className="font-medium text-black/50 transition hover:text-pine" href="/forgot-password">
-                  Quên mật khẩu?
+                  Quen mat khau?
                 </Link>
 
                 {error ? (
@@ -206,19 +203,19 @@ export default function LoginPage() {
               </div>
 
               <Button
-                className="h-12 w-full rounded-2xl text-base shadow-[0_12px_28px_rgba(39,76,71,0.22)] mt-2"
+                className="mt-2 h-12 w-full rounded-2xl text-base shadow-[0_12px_28px_rgba(39,76,71,0.22)]"
                 disabled={isSubmitting}
                 type="submit"
               >
-                <span>{isSubmitting ? 'Đang xử lý...' : 'Đăng nhập'}</span>
-                {!isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
+                <span>{isSubmitting ? 'Dang xu ly...' : 'Dang nhap'}</span>
+                {isSubmitting ? null : <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
             </form>
 
-            <p className="text-sm text-black/50 text-center sm:text-left">
-              Chưa có tài khoản?{' '}
+            <p className="text-center text-sm text-black/50 sm:text-left">
+              Chua co tai khoan?{' '}
               <Link className="font-semibold text-pine transition hover:text-ink" href="/register">
-                Đăng ký ngay
+                Dang ky ngay
               </Link>
             </p>
           </div>

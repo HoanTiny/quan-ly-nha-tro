@@ -2,8 +2,36 @@ import { apiClient } from "@/lib/api/client";
 import type {
   PaymentAccountSettings,
   PaymentProofUploadPayload,
-  PaymentQrResponse
+  PaymentQrResponse,
+  PaymentRecord,
 } from "@/types/domain";
+
+type PaymentResponse = {
+  id: string;
+  amount: number | string;
+  provider: PaymentRecord["gateway"];
+  status: PaymentRecord["status"];
+  proofImageUrl?: string | null;
+  providerRef?: string | null;
+  paidAt?: string | null;
+  membershipId?: string;
+  settlement?: {
+    monthKey?: string;
+  } | null;
+  payeeUserId?: string | null;
+  payee?: {
+    fullName?: string | null;
+  } | null;
+  membership?: {
+    user?: {
+      fullName?: string;
+    } | null;
+    room?: {
+      name?: string | null;
+      code?: string | null;
+    } | null;
+  } | null;
+};
 
 export async function submitPaymentProof(payload: PaymentProofUploadPayload) {
   return apiClient.post("/payments/proof", payload);
@@ -30,7 +58,7 @@ export async function saveMyPaymentAccount(payload: PaymentAccountSettings) {
 }
 
 export async function getPayments(houseId: string, status?: string) {
-  const payments = await apiClient.get<any[]>("/payments", { houseId, status });
+  const payments = await apiClient.get<PaymentResponse[]>("/payments", { houseId, status });
 
   return payments.map((payment) => ({
     id: payment.id,
@@ -41,12 +69,12 @@ export async function getPayments(houseId: string, status?: string) {
     transactionRef: payment.providerRef ?? null,
     paidAt: payment.paidAt,
     memberName: payment.membership?.user?.fullName,
-    roomName: payment.membership?.room?.name ?? payment.membership?.room?.code,
+    roomName: payment.membership?.room?.name ?? payment.membership?.room?.code ?? undefined,
     settlementLineId: payment.membershipId,
     monthKey: payment.settlement?.monthKey,
     payeeUserId: payment.payeeUserId ?? null,
-    payeeName: payment.payee?.fullName ?? null
-  }));
+    payeeName: payment.payee?.fullName ?? null,
+  })) satisfies PaymentRecord[];
 }
 
 export async function confirmPayment(paymentId: string) {

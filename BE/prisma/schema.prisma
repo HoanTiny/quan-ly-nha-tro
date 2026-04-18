@@ -143,6 +143,7 @@ model HouseMembership {
 
   @@unique([houseId, userId])
   @@index([houseId, role, isActive])
+  @@index([houseId, isActive, userId])
   @@index([roomId])
 }
 
@@ -166,6 +167,7 @@ model Expense {
   allocations ExpenseAllocation[]
 
   @@index([houseId, monthKey, category])
+  @@index([houseId, monthKey, status])
   @@index([houseId, expenseDate])
 }
 
@@ -195,6 +197,7 @@ model MonthlySettlement {
   payments     SettlementPayment[]
 
   @@unique([houseId, monthKey])
+  @@index([houseId, monthKey])
   @@index([houseId, status])
 }
 

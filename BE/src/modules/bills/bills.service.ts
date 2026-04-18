@@ -159,6 +159,9 @@ export class BillsService {
     const currentAllocations = (settlementAllocations.get(item.settlementId) ?? []).filter(
       (allocation) => allocation.payerUserId !== item.membership.userId,
     );
+    const paymentAccountSnapshot = await this.paymentsService.getManualPaymentAccountSnapshot(
+      item.settlement.houseId,
+    );
     const payees = await Promise.all(
       [...new Map(currentAllocations.map((allocation) => [allocation.payerUserId, allocation])).values()].map(
         async (allocation) => {
@@ -172,8 +175,8 @@ export class BillsService {
                 payment.status === 'SUCCEEDED' && payment.payeeUserId === allocation.payerUserId,
             )
             .reduce((sum, payment) => sum + Number(payment.amount), 0);
-          const receiver = await this.paymentsService.resolveReceiverAccount(
-            item.settlement.houseId,
+          const receiver = this.paymentsService.resolveReceiverAccountFromSnapshot(
+            paymentAccountSnapshot,
             allocation.payerUserId,
             `TRO-${item.settlement.houseId}-${item.id}-${allocation.payerUserId}`,
             Math.max(totalAmount - paidAmount, 0),

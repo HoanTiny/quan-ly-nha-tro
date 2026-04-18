@@ -9,19 +9,37 @@ type CreateRoomPayload = {
   floor?: number;
 };
 
-export async function getRooms(houseId: string) {
-  const rooms = await apiClient.get<any[]>(`/rooms/house/${houseId}`);
+type RoomMembershipResponse = {
+  isActive: boolean;
+};
 
-  return rooms.map((room) => ({
-    id: room.id,
-    houseId: room.houseId,
-    code: room.code,
-    name: room.name,
-    capacity: room.capacity,
-    floor: room.floor,
-    activeMembers: room.memberships?.filter((membership: any) => membership.isActive).length ?? 0,
-    occupied: (room.memberships?.filter((membership: any) => membership.isActive).length ?? 0) > 0
-  })) satisfies Room[];
+type RoomResponse = {
+  id: string;
+  houseId?: string;
+  code?: string;
+  name: string;
+  capacity?: number;
+  floor?: number | null;
+  memberships?: RoomMembershipResponse[];
+};
+
+export async function getRooms(houseId: string) {
+  const rooms = await apiClient.get<RoomResponse[]>(`/rooms/house/${houseId}`);
+
+  return rooms.map((room) => {
+    const activeMembers = room.memberships?.filter((membership) => membership.isActive).length ?? 0;
+
+    return {
+      id: room.id,
+      houseId: room.houseId,
+      code: room.code,
+      name: room.name,
+      capacity: room.capacity,
+      floor: room.floor,
+      activeMembers,
+      occupied: activeMembers > 0,
+    };
+  }) satisfies Room[];
 }
 
 export async function createRoom(payload: CreateRoomPayload) {

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -157,9 +156,9 @@ export default function AdminPaymentsPage() {
                   <div className="flex flex-col items-start gap-2 lg:items-end">
                     <p className="text-lg font-semibold">{currency.format(payment.amount)} VND</p>
                     {payment.proofUrl ? (
-                      <Link className="text-sm font-medium text-pine" href={payment.proofUrl} target="_blank">
+                      <a className="text-sm font-medium text-pine" href={payment.proofUrl} target="_blank" rel="noreferrer">
                         Mở minh chứng
-                      </Link>
+                      </a>
                     ) : (
                       <p className="text-sm text-muted-foreground">Không có ảnh minh chứng</p>
                     )}

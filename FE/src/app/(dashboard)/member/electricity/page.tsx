@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { evnApi, EvnMeterReadingRequest, DailyReading } from '@/lib/api/evn';
 import {
   Zap,
@@ -42,8 +42,6 @@ function getLast7DaysDateRange(): { ngayDau: string; ngayCuoi: string } {
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   };
-
-  console.log('formatDate(today)', formatDate(today));
 
   return {
     ngayDau: formatDate(startDate),
@@ -95,7 +93,7 @@ export default function MemberElectricityPage() {
     ...getLast7DaysDateRange(),
   }));
 
-  const handleFetchReadings = async () => {
+  const handleFetchReadings = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -110,7 +108,7 @@ export default function MemberElectricityPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [formData]);
 
   // Check EVN credentials access on mount
   useEffect(() => {
@@ -138,7 +136,7 @@ export default function MemberElectricityPage() {
       }
     };
     checkAccess();
-  }, []);
+  }, [handleFetchReadings]);
 
   const yesterdayUsage =
     dailyUsage.length > 0 ? dailyUsage[dailyUsage.length - 1].usage : 0;

@@ -21,28 +21,90 @@ export class DashboardService {
       };
     }
 
-    const [rooms, expenses, settlements] = await Promise.all([
+    const settlementItemWhere: Prisma.SettlementItemWhereInput = {
+      settlement: {
+        is: settlementWhere,
+      },
+    };
+
+    const [
+      rooms,
+      totalExpenseResult,
+      latestSettlement,
+      settlementItems,
+      totalPaidResult,
+      pendingPaymentsCount,
+      recentExpenses,
+    ] = await Promise.all([
       this.prisma.room.count({ where: { houseId } }),
-      this.prisma.expense.findMany({ where: expenseWhere }),
-      this.prisma.monthlySettlement.findMany({
+      this.prisma.expense.aggregate({
+        where: expenseWhere,
+        _sum: {
+          amount: true,
+        },
+      }),
+      this.prisma.monthlySettlement.findFirst({
         where: settlementWhere,
-        include: { items: true },
+        include: {
+          items: {
+            include: {
+              membership: {
+                include: {
+                  user: true,
+                  room: true,
+                },
+              },
+            },
+          },
+        },
         orderBy: { monthKey: 'desc' },
+      }),
+      this.prisma.settlementItem.findMany({
+        where: settlementItemWhere,
+        select: {
+          membershipId: true,
+          netAmount: true,
+          paidAmount: true,
+        },
+      }),
+      this.prisma.monthlySettlement.aggregate({
+        where: settlementWhere,
+        _sum: {
+          totalPaid: true,
+        },
+      }),
+      this.prisma.settlementPayment.count({
+        where: {
+          houseId,
+          status: 'PENDING',
+        },
+      }),
+      this.prisma.expense.findMany({
+        where: expenseWhere,
+        orderBy: { expenseDate: 'desc' },
+        take: 4,
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          amount: true,
+          expenseDate: true,
+          _count: {
+            select: {
+              allocations: true,
+            },
+          },
+        },
       }),
     ]);
 
-    const totalExpense = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
-
-    // Gom nhóm các settlement items theo membershipId để tổng hợp
     const itemsByMember = new Map<string, { netAmount: number; paidAmount: number }>();
 
-    for (const settlement of settlements) {
-      for (const item of settlement.items) {
-        const existing = itemsByMember.get(item.membershipId) || { netAmount: 0, paidAmount: 0 };
-        existing.netAmount += Number(item.netAmount);
-        existing.paidAmount += Number(item.paidAmount);
-        itemsByMember.set(item.membershipId, existing);
-      }
+    for (const item of settlementItems) {
+      const existing = itemsByMember.get(item.membershipId) ?? { netAmount: 0, paidAmount: 0 };
+      existing.netAmount += Number(item.netAmount);
+      existing.paidAmount += Number(item.paidAmount);
+      itemsByMember.set(item.membershipId, existing);
     }
 
     const allItems = Array.from(itemsByMember.entries()).map(([membershipId, data]) => ({
@@ -51,12 +113,10 @@ export class DashboardService {
       paidAmount: data.paidAmount,
     }));
 
-    const totalPaid = settlements.reduce((sum, s) => sum + Number(s.totalPaid), 0);
+    const totalExpense = Number(totalExpenseResult._sum.amount ?? 0);
+    const totalPaid = Number(totalPaidResult._sum.totalPaid ?? 0);
     const totalNetAmount = allItems.reduce((sum, item) => sum + item.netAmount, 0);
-
-    const latestSettlement = settlements[0] ?? null;
-    const overdueCount =
-      allItems.filter((item) => item.netAmount - item.paidAmount > 0).length ?? 0;
+    const overdueCount = allItems.filter((item) => item.netAmount - item.paidAmount > 0).length;
 
     return {
       rooms,
@@ -66,6 +126,15 @@ export class DashboardService {
       allItems,
       totalPaid,
       totalNetAmount,
+      pendingPaymentsCount,
+      recentExpenses: recentExpenses.map((expense) => ({
+        id: expense.id,
+        title: expense.title,
+        category: expense.category,
+        amount: Number(expense.amount),
+        expenseDate: expense.expenseDate,
+        participantCount: expense._count.allocations,
+      })),
     };
   }
 
@@ -89,11 +158,31 @@ export class DashboardService {
     const [lines, notifications] = await Promise.all([
       this.prisma.settlementItem.findMany({
         where,
-        include: { settlement: true },
+        select: {
+          id: true,
+          netAmount: true,
+          paidAmount: true,
+          settlement: {
+            select: {
+              id: true,
+              monthKey: true,
+              status: true,
+            },
+          },
+        },
       }),
       this.prisma.notificationRecipient.findMany({
         where: { userId },
-        include: { notification: true },
+        select: {
+          notification: {
+            select: {
+              id: true,
+              title: true,
+              body: true,
+              createdAt: true,
+            },
+          },
+        },
         take: 5,
         orderBy: {
           notification: {
@@ -110,7 +199,10 @@ export class DashboardService {
 
     return {
       currentDue,
-      lines,
+      lines: lines.map((item) => ({
+        ...item,
+        status: item.settlement.status,
+      })),
       notifications: notifications.map((recipient) => recipient.notification),
     };
   }

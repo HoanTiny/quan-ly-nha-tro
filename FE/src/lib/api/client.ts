@@ -1,12 +1,11 @@
-import { getAuthSession, clearAuthSession } from "@/lib/auth/session";
+import { clearAuthSession, dispatchAuthLogout, getAuthSession } from '@/lib/auth/session';
+import { API_BASE_URL } from '@/lib/config/app-config';
 
 type QueryParams = Record<string, string | number | boolean | undefined>;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api";
-
 function buildUrl(path: string, params?: QueryParams) {
-  const normalizedBase = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
-  const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+  const normalizedBase = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`;
+  const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
   const url = new URL(normalizedPath, normalizedBase);
 
   if (params) {
@@ -21,33 +20,32 @@ function buildUrl(path: string, params?: QueryParams) {
 }
 
 async function request<T>(path: string, init?: RequestInit, params?: QueryParams): Promise<T> {
-  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData;
   const authSession = getAuthSession();
   const response = await fetch(buildUrl(path, params), {
     ...init,
-    credentials: "include",
+    credentials: 'include',
     headers: {
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(authSession?.accessToken ? { Authorization: `Bearer ${authSession.accessToken}` } : {}),
-      ...(init?.headers ?? {})
+      ...(init?.headers ?? {}),
     },
-    cache: "no-store"
+    cache: 'no-store',
   });
 
   if (!response.ok) {
-    // Xử lý lỗi 401 - Unauthorized: clear session và báo hiệu cần đăng xuất
     if (response.status === 401) {
       clearAuthSession();
-      window.dispatchEvent(new CustomEvent("tro-auth-logout", {
-        detail: { reason: "unauthorized" }
-      }));
+      dispatchAuthLogout('unauthorized');
     }
 
     let message = `Yeu cau that bai (${response.status})`;
 
     try {
       const errorBody = await response.json();
-      message = errorBody?.message ?? message;
+      message = Array.isArray(errorBody?.message)
+        ? errorBody.message.join(', ')
+        : (errorBody?.message ?? message);
     } catch {
       try {
         const text = await response.text();
@@ -71,33 +69,33 @@ async function request<T>(path: string, init?: RequestInit, params?: QueryParams
 
 export const apiClient = {
   get<T>(path: string, params?: QueryParams) {
-    return request<T>(path, { method: "GET" }, params);
+    return request<T>(path, { method: 'GET' }, params);
   },
   post<T>(path: string, body?: unknown) {
     return request<T>(path, {
-      method: "POST",
-      body: body ? JSON.stringify(body) : undefined
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
     });
   },
   postForm<T>(path: string, body: FormData) {
     return request<T>(path, {
-      method: "POST",
-      body
+      method: 'POST',
+      body,
     });
   },
   put<T>(path: string, body?: unknown) {
     return request<T>(path, {
-      method: "PUT",
-      body: body ? JSON.stringify(body) : undefined
+      method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
     });
   },
   patch<T>(path: string, body?: unknown) {
     return request<T>(path, {
-      method: "PATCH",
-      body: body ? JSON.stringify(body) : undefined
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
     });
   },
   delete<T>(path: string) {
-    return request<T>(path, { method: "DELETE" });
-  }
+    return request<T>(path, { method: 'DELETE' });
+  },
 };

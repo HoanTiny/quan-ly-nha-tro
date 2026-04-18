@@ -13,6 +13,15 @@ type PaymentAccountMetadata = {
   staticQrImageUrl?: string | null;
 };
 
+type ManualPaymentAccountRecord = {
+  paymentAccount: {
+    id: string;
+    accountName: string;
+    accountRef: string;
+  };
+  metadata: PaymentAccountMetadata;
+};
+
 @Injectable()
 export class PaymentsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -354,6 +363,10 @@ export class PaymentsService {
     }));
   }
 
+  async getManualPaymentAccountSnapshot(houseId: string) {
+    return this.listManualPaymentAccounts(houseId);
+  }
+
   private async findHousePaymentAccount(houseId: string) {
     const paymentAccounts = await this.listManualPaymentAccounts(houseId);
     return (
@@ -475,8 +488,27 @@ export class PaymentsService {
     };
   }
 
-  async resolveReceiverAccount(houseId: string, receiverUserId: string | null, transferContent: string, amount?: number) {
+  async resolveReceiverAccount(
+    houseId: string,
+    receiverUserId: string | null,
+    transferContent: string,
+    amount?: number,
+  ) {
     const paymentAccounts = await this.listManualPaymentAccounts(houseId);
+    return this.resolveReceiverAccountFromSnapshot(
+      paymentAccounts,
+      receiverUserId,
+      transferContent,
+      amount,
+    );
+  }
+
+  resolveReceiverAccountFromSnapshot(
+    paymentAccounts: ManualPaymentAccountRecord[],
+    receiverUserId: string | null,
+    transferContent: string,
+    amount?: number,
+  ) {
     const houseAccount =
       paymentAccounts.find(({ metadata }) => (metadata.scope ?? 'HOUSE') === 'HOUSE') ?? null;
     const userAccount =

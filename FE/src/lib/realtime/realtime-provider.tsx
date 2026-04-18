@@ -1,12 +1,13 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { io, type Socket } from "socket.io-client";
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { io, type Socket } from 'socket.io-client';
 
-import { useAuthSession } from "@/lib/auth/use-auth-session";
-import { queryKeys } from "@/lib/query/query-keys";
-import { useToast } from "@/lib/toast/toast-context";
+import { useAuthSession } from '@/lib/auth/use-auth-session';
+import { getApiOrigin } from '@/lib/config/app-config';
+import { queryKeys } from '@/lib/query/query-keys';
+import { useToast } from '@/lib/toast/toast-context';
 
 type RealtimeNotificationPayload = {
   id: string;
@@ -15,16 +16,6 @@ type RealtimeNotificationPayload = {
   createdAt: string;
   read: boolean;
 };
-
-function getRealtimeBaseUrl() {
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api";
-
-  try {
-    return new URL(apiBaseUrl).origin;
-  } catch {
-    return "http://localhost:3001";
-  }
-}
 
 export function RealtimeProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const session = useAuthSession();
@@ -36,8 +27,8 @@ export function RealtimeProvider({ children }: Readonly<{ children: React.ReactN
       return;
     }
 
-    const socket: Socket = io(`${getRealtimeBaseUrl()}/realtime`, {
-      transports: ["websocket"],
+    const socket: Socket = io(`${getApiOrigin()}/realtime`, {
+      transports: ['websocket'],
       withCredentials: true,
       auth: {
         token: session.accessToken,
@@ -45,12 +36,12 @@ export function RealtimeProvider({ children }: Readonly<{ children: React.ReactN
     });
 
     const refreshBillViews = () => {
-      void queryClient.invalidateQueries({ queryKey: ["bills"] });
-      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bills.list() });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     };
 
     const handleNotificationCreated = (notification: RealtimeNotificationPayload) => {
-      showToast(`${notification.title}: ${notification.body}`, "info");
+      showToast(`${notification.title}: ${notification.body}`, 'info');
       void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.list });
       refreshBillViews();
     };
@@ -59,12 +50,12 @@ export function RealtimeProvider({ children }: Readonly<{ children: React.ReactN
       refreshBillViews();
     };
 
-    socket.on("notification.created", handleNotificationCreated);
-    socket.on("bills.updated", handleBillsUpdated);
+    socket.on('notification.created', handleNotificationCreated);
+    socket.on('bills.updated', handleBillsUpdated);
 
     return () => {
-      socket.off("notification.created", handleNotificationCreated);
-      socket.off("bills.updated", handleBillsUpdated);
+      socket.off('notification.created', handleNotificationCreated);
+      socket.off('bills.updated', handleBillsUpdated);
       socket.disconnect();
     };
   }, [queryClient, session?.accessToken, showToast]);

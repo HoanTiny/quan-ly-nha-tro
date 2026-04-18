@@ -47,8 +47,32 @@ export type AdminExpenseSummary = {
   }>;
 };
 
+type ExpenseResponse = {
+  id: string;
+  title: string;
+  description?: string | null;
+  category: string;
+  amount: number | string;
+  expenseDate: string;
+  monthKey: string;
+  receiptImageUrl?: string | null;
+  payer?: {
+    fullName?: string;
+  } | null;
+  allocations?: Array<unknown>;
+};
+
+type SettlementResponse = {
+  id: string;
+  monthKey: string;
+  status: string;
+  totalExpense: number | string;
+  totalPaid: number | string;
+  items?: Array<unknown>;
+};
+
 export async function getExpenses(houseId: string, month?: string) {
-  const expenses = await apiClient.get<any[]>("/expenses", { houseId, month });
+  const expenses = await apiClient.get<ExpenseResponse[]>("/expenses", { houseId, month });
 
   return expenses.map((expense) => ({
     id: expense.id,
@@ -77,7 +101,7 @@ export async function deleteExpense(expenseId: string) {
 }
 
 export async function getSettlements(houseId: string, month?: string) {
-  const settlements = await apiClient.get<any[]>(`/settlements/house/${houseId}`, { month });
+  const settlements = await apiClient.get<SettlementResponse[]>(`/settlements/house/${houseId}`, { month });
 
   return settlements.map((settlement) => ({
     id: settlement.id,

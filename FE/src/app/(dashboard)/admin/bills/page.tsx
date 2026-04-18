@@ -164,10 +164,11 @@ export default function AdminBillsPage() {
       setParticipantIds(allScopedMemberIds);
     } else if (splitMode === SELECTED_MEMBERS) {
       // Khi chọn "thành viên cụ thể", chỉ giữ lại những thành viên vẫn thuộc phạm vi hiện tại
-      const validParticipantIds = participantIds.filter((membershipId) =>
-        scopedMembers.some((member) => member.membershipId === membershipId),
+      setParticipantIds((current) =>
+        current.filter((membershipId) =>
+          scopedMembers.some((member) => member.membershipId === membershipId),
+        ),
       );
-      setParticipantIds(validParticipantIds);
     } else if (splitMode === UNEQUAL_SPLIT) {
       // Khi chọn "chia không đều", chọn tất cả và set weight = 1 cho mỗi người
       const allScopedMemberIds = scopedMembers
@@ -898,13 +899,14 @@ export default function AdminBillsPage() {
                       {currency.format(expense.amount)} VND
                     </p>
                     {expense.receiptImageUrl ? (
-                      <Link
+                      <a
                         className="text-sm font-medium text-pine"
                         href={expense.receiptImageUrl}
                         target="_blank"
+                        rel="noreferrer"
                       >
                         Xem hóa đơn
-                      </Link>
+                      </a>
                     ) : (
                       <p className="text-sm text-muted-foreground">
                         Không có ảnh hóa đơn

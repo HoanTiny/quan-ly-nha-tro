@@ -2,7 +2,9 @@ import type { AuthSession } from "@/types/domain";
 
 const SESSION_KEY = "tro-auth-session";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+
 export const AUTH_SESSION_CHANGED_EVENT = "tro-auth-session-changed";
+export const AUTH_LOGOUT_EVENT = "tro-auth-logout";
 
 function setCookie(name: string, value: string, maxAge = COOKIE_MAX_AGE) {
   if (typeof document === "undefined") {
@@ -26,6 +28,18 @@ function dispatchSessionChanged() {
   }
 
   window.dispatchEvent(new Event(AUTH_SESSION_CHANGED_EVENT));
+}
+
+export function dispatchAuthLogout(reason: "unauthorized" | "manual" = "manual") {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(AUTH_LOGOUT_EVENT, {
+      detail: { reason },
+    }),
+  );
 }
 
 export function saveAuthSession(session: AuthSession) {

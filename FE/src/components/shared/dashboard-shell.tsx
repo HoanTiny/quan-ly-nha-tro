@@ -20,32 +20,34 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { clearAuthSession, getAuthSession } from '@/lib/auth/session';
+import { AUTH_LOGOUT_EVENT, clearAuthSession } from '@/lib/auth/session';
+import { useAuthSession } from '@/lib/auth/use-auth-session';
+import { APP_NAME } from '@/lib/config/app-config';
 import { cn } from '@/lib/utils';
 
 const adminNav = [
-  { href: '/admin/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
-  { href: '/admin/rooms', label: 'Phòng', icon: MenuSquare },
-  { href: '/admin/members', label: 'Thành viên', icon: Users },
-  { href: '/admin/bills', label: 'Chi phí', icon: FileText },
-  { href: '/admin/expenses', label: 'Tổng kết', icon: PieChart },
-  { href: '/admin/payments', label: 'Thanh toán', icon: Wallet },
-  { href: '/admin/electricity', label: 'Quản lý điện', icon: Zap },
-  { href: '/admin/evn', label: 'Chỉ số điện', icon: Zap },
-  { href: '/admin/notifications', label: 'Thông báo', icon: Bell },
-  { href: '/admin/settings', label: 'Cài đặt', icon: Settings },
-  { href: '/admin/change-password', label: 'Đổi mật khẩu', icon: Key },
+  { href: '/admin/dashboard', label: 'Tong quan', icon: LayoutDashboard },
+  { href: '/admin/rooms', label: 'Phong', icon: MenuSquare },
+  { href: '/admin/members', label: 'Thanh vien', icon: Users },
+  { href: '/admin/bills', label: 'Chi phi', icon: FileText },
+  { href: '/admin/expenses', label: 'Tong ket', icon: PieChart },
+  { href: '/admin/payments', label: 'Thanh toan', icon: Wallet },
+  { href: '/admin/electricity', label: 'Quan ly dien', icon: Zap },
+  { href: '/admin/evn', label: 'Chi so dien', icon: Zap },
+  { href: '/admin/notifications', label: 'Thong bao', icon: Bell },
+  { href: '/admin/settings', label: 'Cai dat', icon: Settings },
+  { href: '/admin/change-password', label: 'Doi mat khau', icon: Key },
 ] satisfies ReadonlyArray<{ href: Route; label: string; icon: LucideIcon }>;
 
 const memberNav = [
-  { href: '/member/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
-  { href: '/member/bills', label: 'Hóa đơn', icon: FileText },
-  { href: '/member/expenses', label: 'Tổng kết', icon: PieChart },
-  { href: '/member/payments', label: 'Thanh toán', icon: CreditCard },
-  { href: '/member/electricity', label: 'Tiền điện', icon: Zap },
-  { href: '/member/notifications', label: 'Thông báo', icon: Bell },
-  { href: '/member/profile', label: 'Cá nhân', icon: Users },
-  { href: '/member/change-password', label: 'Đổi mật khẩu', icon: Key },
+  { href: '/member/dashboard', label: 'Tong quan', icon: LayoutDashboard },
+  { href: '/member/bills', label: 'Hoa don', icon: FileText },
+  { href: '/member/expenses', label: 'Tong ket', icon: PieChart },
+  { href: '/member/payments', label: 'Thanh toan', icon: CreditCard },
+  { href: '/member/electricity', label: 'Tien dien', icon: Zap },
+  { href: '/member/notifications', label: 'Thong bao', icon: Bell },
+  { href: '/member/profile', label: 'Ca nhan', icon: Users },
+  { href: '/member/change-password', label: 'Doi mat khau', icon: Key },
 ] satisfies ReadonlyArray<{ href: Route; label: string; icon: LucideIcon }>;
 
 export function DashboardShell({
@@ -54,7 +56,7 @@ export function DashboardShell({
   const pathname = usePathname();
   const router = useRouter();
   const nav = pathname.startsWith('/admin') ? adminNav : memberNav;
-  const session = getAuthSession();
+  const session = useAuthSession();
   const [showMenu, setShowMenu] = React.useState(false);
 
   const handleLogout = () => {
@@ -62,25 +64,23 @@ export function DashboardShell({
     router.replace('/login');
   };
 
-  // Lấy 4 mục đầu, còn lại vào menu "..."
   const visibleItems = nav.slice(0, 4);
   const moreItems = nav.slice(4);
 
-  // Đóng menu khi click outside
   React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
       if (showMenu && !target.closest('[data-more-menu]')) {
         setShowMenu(false);
       }
     };
+
     if (showMenu) {
       document.addEventListener('click', handleClickOutside);
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [showMenu]);
 
-  // Lắng nghe sự kiện logout từ API client khi token hết hạn
   React.useEffect(() => {
     const handleAuthLogout = (event: CustomEvent<{ reason: string }>) => {
       if (event.detail?.reason === 'unauthorized') {
@@ -89,37 +89,27 @@ export function DashboardShell({
       }
     };
 
-    window.addEventListener(
-      'tro-auth-logout',
-      handleAuthLogout as EventListener,
-    );
+    window.addEventListener(AUTH_LOGOUT_EVENT, handleAuthLogout as EventListener);
     return () => {
-      window.removeEventListener(
-        'tro-auth-logout',
-        handleAuthLogout as EventListener,
-      );
+      window.removeEventListener(AUTH_LOGOUT_EVENT, handleAuthLogout as EventListener);
     };
   }, [router]);
 
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
-        {/* PC Sidebar - Always visible on large screens */}
-        <aside className="hidden lg:block fixed left-0 top-0 h-screen w-72 shrink-0 border-r border-neutral-300 bg-secondary p-5 z-40">
+        <aside className="fixed left-0 top-0 z-40 hidden h-screen w-72 shrink-0 border-r border-neutral-300 bg-secondary p-5 lg:block">
           <div className="mb-8 mt-16">
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Tro Manager
+              {APP_NAME}
             </p>
-            <h2 className="mt-2 text-xl font-semibold text-foreground">
-              Bảng điều khiển
-            </h2>
+            <h2 className="mt-2 text-xl font-semibold text-foreground">Bang dieu khien</h2>
           </div>
 
           <nav className="space-y-2">
             {nav.map((item) => {
               const Icon = item.icon;
-              const isActive =
-                pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
               return (
                 <Link
@@ -141,21 +131,15 @@ export function DashboardShell({
         </aside>
 
         <div className="flex min-h-screen flex-1 flex-col lg:ml-72">
-          {' '}
-          {/* Thêm margin-left CHỈ trên màn hình lớn để không bị che bởi sidebar cố định */}
           <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-300 bg-background/80 px-4 py-4 backdrop-blur lg:px-8">
             <div className="lg:hidden">
-              <p className="text-xs text-muted-foreground">
-                {session?.email ?? 'Ứng dụng quản lý nhà trọ'}
-              </p>
+              <p className="text-xs text-muted-foreground">{session?.email ?? APP_NAME}</p>
             </div>
             <div className="hidden lg:block">
               <p className="text-sm font-medium text-foreground">
-                Xin chào{session?.fullName ? `, ${session.fullName}` : ''}
+                Xin chao{session?.fullName ? `, ${session.fullName}` : ''}
               </p>
-              <p className="text-xs text-muted-foreground">
-                {session?.email ?? 'Ứng dụng quản lý nhà trọ'}
-              </p>
+              <p className="text-xs text-muted-foreground">{session?.email ?? APP_NAME}</p>
             </div>
             <button
               type="button"
@@ -163,28 +147,27 @@ export function DashboardShell({
               className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-xs font-medium text-foreground hover:bg-neutral-300"
             >
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Đăng xuất</span>
+              <span className="hidden sm:inline">Dang xuat</span>
             </button>
           </header>
-          <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8 pb-[84px] lg:pb-8 w-[100vw] sm:w-full">
+
+          <main className="flex-1 w-full px-4 py-6 pb-[84px] lg:px-8 lg:py-8 lg:pb-8">
             {children}
           </main>
-          {/* Mobile Bottom Navigation Bar - Full width navbar */}
-          <nav className="fixed left-0 right-0 bottom-0 z-40 lg:hidden">
+
+          <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
             <div className="border-t border-neutral-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-              <div className="grid grid-cols-5 h-[68px] safe-area-pb">
+              <div className="grid h-[68px] grid-cols-5 safe-area-pb">
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive =
-                    pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`);
+                  const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        'relative flex flex-col items-center justify-center gap-[2px] transition-colors h-full',
+                        'relative flex h-full flex-col items-center justify-center gap-[2px] transition-colors',
                         isActive ? 'bg-primary/5' : 'hover:bg-neutral-50',
                       )}
                     >
@@ -195,9 +178,9 @@ export function DashboardShell({
                         )}
                       >
                         <Icon className="h-5 w-5" />
-                        {isActive && (
-                          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary ring-2 ring-white" />
-                        )}
+                        {isActive ? (
+                          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary ring-2 ring-white" />
+                        ) : null}
                       </div>
                       <span
                         className={cn(
@@ -211,13 +194,12 @@ export function DashboardShell({
                   );
                 })}
 
-                {/* Nút "..." xem thêm */}
                 <div className="relative" data-more-menu>
                   <button
                     type="button"
-                    onClick={() => setShowMenu(!showMenu)}
+                    onClick={() => setShowMenu((current) => !current)}
                     className={cn(
-                      'relative flex flex-col items-center justify-center gap-[2px] transition-colors h-full w-full',
+                      'relative flex h-full w-full flex-col items-center justify-center gap-[2px] transition-colors',
                       showMenu ? 'bg-primary/5' : 'hover:bg-neutral-50',
                     )}
                   >
@@ -230,24 +212,19 @@ export function DashboardShell({
                       <MenuSquare className="h-5 w-5" />
                     </div>
                     <span className="text-[10px] font-medium leading-none text-neutral-500">
-                      Thêm
+                      Them
                     </span>
                   </button>
 
-                  {/* Menu popup */}
-                  {showMenu && (
+                  {showMenu ? (
                     <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setShowMenu(false)}
-                      />
-                      <div className="fixed right-4 bottom-[80px] z-50 w-56 rounded-2xl bg-white shadow-xl border border-neutral-200 overflow-hidden">
-                        <div className="p-2 max-h-[60vh] overflow-y-auto">
+                      <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                      <div className="fixed bottom-[80px] right-4 z-50 w-56 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
+                        <div className="max-h-[60vh] overflow-y-auto p-2">
                           {moreItems.map((item) => {
                             const Icon = item.icon;
                             const isActive =
-                              pathname === item.href ||
-                              pathname.startsWith(`${item.href}/`);
+                              pathname === item.href || pathname.startsWith(`${item.href}/`);
 
                             return (
                               <Link
@@ -269,7 +246,7 @@ export function DashboardShell({
                         </div>
                       </div>
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>

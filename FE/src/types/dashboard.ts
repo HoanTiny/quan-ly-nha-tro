@@ -4,10 +4,19 @@ export type AdminDashboard = {
   overdueCount: number;
   totalPaid: number;
   totalNetAmount: number;
+  pendingPaymentsCount: number;
   allItems: Array<{
     membershipId: string;
     netAmount: number;
     paidAmount: number;
+  }>;
+  recentExpenses: Array<{
+    id: string;
+    title: string;
+    category: string;
+    amount: number;
+    expenseDate: string;
+    participantCount: number;
   }>;
   latestSettlement?: {
     id: string;

@@ -5,14 +5,17 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Tro Manager',
-  description: 'Quản lý chi tiêu nhà trọ minh bạch và dễ đối soát.',
+  description: 'Quan ly chi tieu nha tro minh bach va de doi soat.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="vi">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
       </head>
       <body className="min-h-screen">
         <AppProviders>{children}</AppProviders>

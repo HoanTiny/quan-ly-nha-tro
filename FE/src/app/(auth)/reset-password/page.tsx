@@ -12,6 +12,7 @@ import { resetPassword } from '@/features/auth/api';
 import { useToast } from '@/lib/toast/toast-context';
 
 function ResetPasswordForm() {
+  'use client';
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');

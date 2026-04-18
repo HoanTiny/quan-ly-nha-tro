@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { getDefaultRoute } from "@/lib/auth/default-route";
 
 function redirectForSession(request: NextRequest, role: string | undefined, houseId: string | undefined) {
   const target = getDefaultRoute({
     role: role === "admin" ? "admin" : "member",
-    houseId: houseId ?? null
+    houseId: houseId ?? null,
   });
 
   return NextResponse.redirect(new URL(target, request.url));
@@ -16,7 +17,11 @@ export function middleware(request: NextRequest) {
   const role = request.cookies.get("tro_role")?.value;
   const houseId = request.cookies.get("tro_house_id")?.value;
 
-  const isAuthPage = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password";
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password";
   const isCreateHousePage = pathname === "/create-house";
   const isPendingAccessPage = pathname === "/pending-access";
   const isAdminPage = pathname.startsWith("/admin");
@@ -66,5 +71,14 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/register", "/forgot-password", "/create-house", "/pending-access", "/admin/:path*", "/member/:path*"]
+  matcher: [
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+    "/create-house",
+    "/pending-access",
+    "/admin/:path*",
+    "/member/:path*",
+  ],
 };

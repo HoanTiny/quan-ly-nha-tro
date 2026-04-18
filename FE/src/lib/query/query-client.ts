@@ -12,5 +12,3 @@ export function createQueryClient() {
     },
   });
 }
-
-export const makeQueryClient = createQueryClient;

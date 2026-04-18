@@ -16,5 +16,3 @@ export const useUiStore = create<UiState>((set) => ({
   toggleMobileSidebar: () =>
     set((state) => ({ mobileSidebarOpen: !state.mobileSidebarOpen })),
 }));
-
-export const useUIStore = useUiStore;

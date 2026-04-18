@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { performance } from 'node:perf_hooks';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
@@ -10,12 +11,21 @@ import { ExpensesService } from './expenses.service';
 @Controller('expenses')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ExpensesController {
+  private readonly logger = new Logger(ExpensesController.name);
+
   constructor(private readonly expensesService: ExpensesService) {}
 
   @Post()
   @Roles('OWNER', 'MANAGER')
-  create(@CurrentUser() user: AuthUser, @Body() dto: CreateExpenseDto) {
-    return this.expensesService.createExpense(user.sub, dto);
+  async create(@CurrentUser() user: AuthUser, @Body() dto: CreateExpenseDto) {
+    const startedAt = performance.now();
+    try {
+      return await this.expensesService.createExpense(user.sub, dto);
+    } finally {
+      this.logger.log(
+        `POST /expenses houseId=${dto.houseId} completed in ${Math.round(performance.now() - startedAt)}ms`,
+      );
+    }
   }
 
   @Get()
@@ -50,13 +60,27 @@ export class ExpensesController {
 
   @Put(':expenseId')
   @Roles('OWNER', 'MANAGER')
-  update(@Param('expenseId') expenseId: string, @Body() dto: Partial<CreateExpenseDto>) {
-    return this.expensesService.updateExpense(expenseId, dto);
+  async update(@Param('expenseId') expenseId: string, @Body() dto: Partial<CreateExpenseDto>) {
+    const startedAt = performance.now();
+    try {
+      return await this.expensesService.updateExpense(expenseId, dto);
+    } finally {
+      this.logger.log(
+        `PUT /expenses/${expenseId} completed in ${Math.round(performance.now() - startedAt)}ms`,
+      );
+    }
   }
 
   @Delete(':expenseId')
   @Roles('OWNER', 'MANAGER')
-  delete(@Param('expenseId') expenseId: string) {
-    return this.expensesService.deleteExpense(expenseId);
+  async delete(@Param('expenseId') expenseId: string) {
+    const startedAt = performance.now();
+    try {
+      return await this.expensesService.deleteExpense(expenseId);
+    } finally {
+      this.logger.log(
+        `DELETE /expenses/${expenseId} completed in ${Math.round(performance.now() - startedAt)}ms`,
+      );
+    }
   }
 }

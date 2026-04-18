@@ -15,8 +15,25 @@ type AssignRoomPayload = {
   roomId?: string;
 };
 
+type MembershipResponse = {
+  id: string;
+  role?: "OWNER" | "MANAGER" | "TENANT";
+  isActive?: boolean;
+  roomId?: string | null;
+  room?: {
+    name?: string | null;
+    code?: string | null;
+  } | null;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    phone?: string | null;
+  };
+};
+
 export async function getMembers(houseId: string) {
-  const memberships = await apiClient.get<any[]>("/members", { houseId });
+  const memberships = await apiClient.get<MembershipResponse[]>("/members", { houseId });
 
   return memberships.map((membership) => ({
     id: membership.user.id,
@@ -27,7 +44,7 @@ export async function getMembers(houseId: string) {
     roomId: membership.roomId ?? undefined,
     roomName: membership.room?.name ?? membership.room?.code ?? undefined,
     role: membership.role,
-    isActive: membership.isActive
+    isActive: membership.isActive,
   })) satisfies Member[];
 }
 
