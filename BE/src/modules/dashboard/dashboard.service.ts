@@ -21,12 +21,6 @@ export class DashboardService {
       };
     }
 
-    const settlementItemWhere: Prisma.SettlementItemWhereInput = {
-      settlement: {
-        is: settlementWhere,
-      },
-    };
-
     const [
       rooms,
       totalExpenseResult,
@@ -45,24 +39,23 @@ export class DashboardService {
       }),
       this.prisma.monthlySettlement.findFirst({
         where: settlementWhere,
-        include: {
-          items: {
-            include: {
-              membership: {
-                include: {
-                  user: true,
-                  room: true,
-                },
-              },
-            },
-          },
+        select: {
+          id: true,
+          monthKey: true,
+          status: true,
+          totalExpense: true,
+          totalPaid: true,
         },
         orderBy: { monthKey: 'desc' },
       }),
-      this.prisma.settlementItem.findMany({
-        where: settlementItemWhere,
-        select: {
-          membershipId: true,
+      this.prisma.settlementItem.groupBy({
+        by: ['membershipId'],
+        where: {
+          settlement: {
+            is: settlementWhere,
+          },
+        },
+        _sum: {
           netAmount: true,
           paidAmount: true,
         },
@@ -98,19 +91,10 @@ export class DashboardService {
       }),
     ]);
 
-    const itemsByMember = new Map<string, { netAmount: number; paidAmount: number }>();
-
-    for (const item of settlementItems) {
-      const existing = itemsByMember.get(item.membershipId) ?? { netAmount: 0, paidAmount: 0 };
-      existing.netAmount += Number(item.netAmount);
-      existing.paidAmount += Number(item.paidAmount);
-      itemsByMember.set(item.membershipId, existing);
-    }
-
-    const allItems = Array.from(itemsByMember.entries()).map(([membershipId, data]) => ({
-      membershipId,
-      netAmount: data.netAmount,
-      paidAmount: data.paidAmount,
+    const allItems = settlementItems.map((item) => ({
+      membershipId: item.membershipId,
+      netAmount: Number(item._sum.netAmount ?? 0),
+      paidAmount: Number(item._sum.paidAmount ?? 0),
     }));
 
     const totalExpense = Number(totalExpenseResult._sum.amount ?? 0);

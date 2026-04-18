@@ -209,18 +209,17 @@ export class SettlementsService {
 
     return this.prisma.monthlySettlement.findMany({
       where,
-      include: {
-        items: {
-          include: {
-            membership: {
-              include: {
-                user: true,
-                room: true,
-              },
-            },
+      select: {
+        id: true,
+        monthKey: true,
+        status: true,
+        totalExpense: true,
+        totalPaid: true,
+        _count: {
+          select: {
+            items: true,
           },
         },
-        payments: true,
       },
       orderBy: { monthKey: 'desc' },
     });

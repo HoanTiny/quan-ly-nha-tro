@@ -1,5 +1,5 @@
 import { Prisma, SplitMethod } from '@prisma/client';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettlementsService } from '../settlements/settlements.service';
@@ -14,6 +14,8 @@ type ResolvedParticipant = {
 
 @Injectable()
 export class ExpensesService {
+  private readonly logger = new Logger(ExpensesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly settlementsService: SettlementsService,
@@ -97,13 +99,17 @@ export class ExpensesService {
       ...new Set(expense?.allocations.map((allocation) => allocation.membership.userId).filter(Boolean)),
     ];
 
-    await this.notificationsService.createInAppNotification({
+    void this.notificationsService.createInAppNotification({
       houseId: dto.houseId,
       title: 'Có hóa đơn mới được thêm',
       body: `${expense?.title ?? 'Một khoản chi'} vừa được thêm vào kỳ ${monthKey}. Hệ thống đã cập nhật bill của bạn.`,
       recipientUserIds,
+    }).then(() => {
+      this.notificationsService.emitBillsUpdated(recipientUserIds, dto.houseId, monthKey);
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to dispatch expense notifications: ${message}`);
     });
-    this.notificationsService.emitBillsUpdated(recipientUserIds, dto.houseId, monthKey);
 
     return expense;
   }

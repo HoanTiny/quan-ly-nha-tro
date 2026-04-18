@@ -69,6 +69,9 @@ type SettlementResponse = {
   totalExpense: number | string;
   totalPaid: number | string;
   items?: Array<unknown>;
+  _count?: {
+    items?: number;
+  };
 };
 
 export async function getExpenses(houseId: string, month?: string) {
@@ -109,7 +112,7 @@ export async function getSettlements(houseId: string, month?: string) {
     status: settlement.status,
     totalExpense: Number(settlement.totalExpense),
     totalPaid: Number(settlement.totalPaid),
-    itemsCount: settlement.items?.length ?? 0,
+    itemsCount: settlement._count?.items ?? settlement.items?.length ?? 0,
   })) satisfies SettlementRecord[];
 }
 
